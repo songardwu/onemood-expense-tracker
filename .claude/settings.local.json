@@ -1,0 +1,40 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git --version)",
+      "Bash(gh auth:*)",
+      "Bash(winget install:*)",
+      "Bash(cmd.exe //c \"where gh\")",
+      "Read(//c/Program Files/GitHub CLI/**)",
+      "Read(//c/Program Files \\(x86\\)/GitHub CLI/**)",
+      "Read(//c/Users/**)",
+      "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" auth status)",
+      "mcp__mcp-registry__search_mcp_registry",
+      "Bash(npx --version)",
+      "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" auth token)",
+      "Bash(npm install:*)",
+      "Bash(claude --version)",
+      "Bash(npm root:*)",
+      "Bash(cmd.exe //c \"echo %PATH%\")",
+      "Bash(cmd.exe //c \"start powershell\")",
+      "Bash(cmd.exe //c 'start powershell -NoExit -Command \"[Environment]::SetEnvironmentVariable\\('\\\\''Path'\\\\'', [Environment]::GetEnvironmentVariable\\('\\\\''Path'\\\\'','\\\\''User'\\\\''\\) + '\\\\'';C:\\\\Users\\\\songa\\\\AppData\\\\Roaming\\\\npm'\\\\'', '\\\\''User'\\\\''\\); $env:Path += '\\\\'';C:\\\\Users\\\\songa\\\\AppData\\\\Roaming\\\\npm'\\\\''; claude --version\"')",
+      "Bash(powershell.exe -Command \"& 'C:\\\\Users\\\\songa\\\\AppData\\\\Roaming\\\\npm\\\\claude.cmd' --version\")",
+      "Bash(ls -la \"/c/Users/songa/AppData/Roaming/npm/claude\"*)",
+      "Bash(powershell.exe -ExecutionPolicy Bypass -Command \"Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned -Force; [Environment]::SetEnvironmentVariable\\('Path', [Environment]::GetEnvironmentVariable\\('Path','User'\\) + ';C:\\\\Users\\\\songa\\\\AppData\\\\Roaming\\\\npm', 'User'\\); Write-Host 'Done'\")",
+      "Bash(reg add:*)",
+      "Bash(cmd.exe //c \"reg add \\\\\"HKCU\\\\SOFTWARE\\\\Microsoft\\\\PowerShell\\\\1\\\\ShellIds\\\\Microsoft.PowerShell\\\\\" /v ExecutionPolicy /t REG_SZ /d RemoteSigned /f\")",
+      "Bash(cmd.exe //c \"start powershell -NoExit -Command \\\\\"claude --version\\\\\"\")",
+      "Bash(where claude:*)",
+      "Bash(npm list:*)",
+      "Bash(powershell.exe -Command '$currentPath = [Environment]::GetEnvironmentVariable\\(\"Path\", \"User\"\\); if \\($currentPath -notlike \"*AppData\\\\Roaming\\\\npm*\"\\) { [Environment]::SetEnvironmentVariable\\(\"Path\", \"$currentPath;C:\\\\Users\\\\songa\\\\AppData\\\\Roaming\\\\npm\", \"User\"\\); echo \"Added npm to User PATH\" } else { echo \"npm path already in User PATH\" }')",
+      "Bash(powershell.exe -Command '[Environment]::GetEnvironmentVariable\\(\"Path\", \"User\"\\)')",
+      "Bash(powershell.exe -Command '$env:PATH')",
+      "Bash(powershell.exe -Command \"claude --version\")",
+      "Bash(powershell.exe -Command \"[Environment]::SetEnvironmentVariable\\('Path', [Environment]::GetEnvironmentVariable\\('Path', 'User'\\) + ';C:\\\\Users\\\\songa\\\\AppData\\\\Roaming\\\\npm', 'User'\\)\")",
+      "Bash(powershell.exe -Command '$env:Path = [Environment]::GetEnvironmentVariable\\('\\\\''Path'\\\\'', '\\\\''User'\\\\''\\) + '\\\\'';'\\\\'' + [Environment]::GetEnvironmentVariable\\('\\\\''Path'\\\\'', '\\\\''Machine'\\\\''\\); claude --version')",
+      "Bash(npm --version)",
+      "Bash(powershell -Command \"Get-ExecutionPolicy\")",
+      "Bash(vercel --version)"
+    ]
+  }
+}

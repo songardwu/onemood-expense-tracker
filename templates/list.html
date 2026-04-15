@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>出帳管理</h1>
+
+<div class="actions">
+    <a href="/new" class="btn btn-primary">+ 新增提報</a>
+    <a href="/export" class="btn btn-secondary">匯出 Excel</a>
+</div>
+
+{% if reports %}
+<!-- 桌面版表格 -->
+<table class="desktop-table">
+    <thead>
+        <tr>
+            <th>發票收據日期</th>
+            <th>名稱</th>
+            <th>款項分類</th>
+            <th>請款金額</th>
+            <th>案場名稱</th>
+            <th>匯款日期</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for r in reports %}
+        <tr>
+            <td>{{ r[6] }}</td>
+            <td>{{ r[1] }}</td>
+            <td><span class="badge badge-{{ r[4]|replace('案場成本','cost')|replace('管銷','admin')|replace('獎金','bonus') }}">{{ r[4] }}</span></td>
+            <td class="amount">{{ "{:,.0f}".format(r[3]) }}</td>
+            <td>{{ r[8] }}</td>
+            <td>{{ r[7] if r[7] else '-' }}</td>
+            <td>
+                <form method="POST" action="/delete/{{ r[0] }}" onsubmit="return confirm('確定要刪除這筆嗎？')">
+                    <button type="submit" class="btn-delete">刪除</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<!-- 手機版卡片 -->
+<div class="mobile-cards">
+    {% for r in reports %}
+    <div class="card">
+        <div class="card-header">
+            <span class="card-date">{{ r[6] }}</span>
+            <form method="POST" action="/delete/{{ r[0] }}" onsubmit="return confirm('確定要刪除這筆嗎？')">
+                <button type="submit" class="btn-delete">刪除</button>
+            </form>
+        </div>
+        <div class="card-body">
+            <div class="card-row">
+                <span class="card-label">名稱</span>
+                <span class="card-value">{{ r[1] }}</span>
+            </div>
+            <div class="card-row">
+                <span class="card-label">款項分類</span>
+                <span class="card-value"><span class="badge badge-{{ r[4]|replace('案場成本','cost')|replace('管銷','admin')|replace('獎金','bonus') }}">{{ r[4] }}</span></span>
+            </div>
+            <div class="card-row">
+                <span class="card-label">請款金額</span>
+                <span class="card-value amount">{{ "{:,.0f}".format(r[3]) }}</span>
+            </div>
+            <div class="card-row">
+                <span class="card-label">案場名稱</span>
+                <span class="card-value">{{ r[8] }}</span>
+            </div>
+            <div class="card-row">
+                <span class="card-label">匯款日期</span>
+                <span class="card-value">{{ r[7] if r[7] else '-' }}</span>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+{% else %}
+<div class="empty-state">
+    <p>目前沒有提報資料</p>
+    <p>點擊上方「+ 新增提報」開始登帳</p>
+</div>
+{% endif %}
+{% endblock %}

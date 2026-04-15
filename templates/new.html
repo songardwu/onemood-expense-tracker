@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>新增提報</h1>
+<a href="/" class="back-link">&larr; 回清單</a>
+
+{% if error %}
+<div class="error-msg">{{ error }}</div>
+{% endif %}
+
+<form method="POST" action="/submit" class="report-form">
+    <div class="form-group">
+        <label for="vendor">名稱 <span class="required">*</span></label>
+        <input list="vendor-list" id="vendor" name="vendor" required
+               value="{{ form.vendor if form else '' }}">
+        <datalist id="vendor-list">
+            {% for v in vendors %}
+            <option value="{{ v }}">
+            {% endfor %}
+        </datalist>
+    </div>
+
+    <div class="form-group">
+        <label for="vendor_type">廠商類型 <span class="required">*</span></label>
+        <input list="vendor-type-list" id="vendor_type" name="vendor_type" required
+               value="{{ form.vendor_type if form else '' }}">
+        <datalist id="vendor-type-list">
+            {% for vt in vendor_types %}
+            <option value="{{ vt }}">
+            {% endfor %}
+        </datalist>
+    </div>
+
+    <div class="form-group">
+        <label for="amount">請款金額 <span class="required">*</span></label>
+        <input type="number" inputmode="decimal" id="amount" name="amount"
+               min="1" step="1" required
+               value="{{ form.amount if form else '' }}">
+    </div>
+
+    <div class="form-group">
+        <label>款項分類 <span class="required">*</span></label>
+        <div class="radio-group">
+            <label class="radio-label">
+                <input type="radio" name="category" value="案場成本" required
+                       {{ 'checked' if form and form.category == '案場成本' else '' }}>
+                <span>案場成本</span>
+            </label>
+            <label class="radio-label">
+                <input type="radio" name="category" value="管銷"
+                       {{ 'checked' if form and form.category == '管銷' else '' }}>
+                <span>管銷</span>
+            </label>
+            <label class="radio-label">
+                <input type="radio" name="category" value="獎金"
+                       {{ 'checked' if form and form.category == '獎金' else '' }}>
+                <span>獎金</span>
+            </label>
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label for="invoice_no">發票收據編號</label>
+        <input type="text" id="invoice_no" name="invoice_no"
+               value="{{ form.invoice_no if form else '' }}">
+    </div>
+
+    <div class="form-group">
+        <label for="invoice_date">發票收據日期 <span class="required">*</span></label>
+        <input type="date" id="invoice_date" name="invoice_date" required
+               value="{{ form.invoice_date if form else today }}">
+    </div>
+
+    <div class="form-group">
+        <label for="remit_date">匯款日期</label>
+        <input type="date" id="remit_date" name="remit_date"
+               value="{{ form.remit_date if form else '' }}">
+    </div>
+
+    <div class="form-group">
+        <label for="project_no">案場名稱 <span class="required">*</span></label>
+        <input type="text" id="project_no" name="project_no" required
+               value="{{ form.project_no if form else '' }}">
+    </div>
+
+    <div class="form-group">
+        <label for="stage">施工階段</label>
+        <input type="text" id="stage" name="stage"
+               value="{{ form.stage if form else '' }}">
+    </div>
+
+    <button type="submit" class="btn btn-primary btn-submit">送出</button>
+</form>
+{% endblock %}

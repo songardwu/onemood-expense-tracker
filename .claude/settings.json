@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(vercel project *)",
+      "Bash(vercel link *)"
+    ]
+  }
+}
