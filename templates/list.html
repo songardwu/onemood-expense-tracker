@@ -12,24 +12,26 @@
 <table class="desktop-table">
     <thead>
         <tr>
-            <th>發票收據日期</th>
-            <th>名稱</th>
-            <th>款項分類</th>
-            <th>請款金額</th>
-            <th>案場名稱</th>
             <th>匯款日期</th>
+            <th>名稱</th>
+            <th>請款金額</th>
+            <th>款項分類</th>
+            <th>案場名稱</th>
+            <th>發票收據日期</th>
+            <th>發票收據編號</th>
             <th></th>
         </tr>
     </thead>
     <tbody>
         {% for r in reports %}
         <tr>
-            <td>{{ r[6] }}</td>
-            <td>{{ r[1] }}</td>
-            <td><span class="badge badge-{{ r[4]|replace('案場成本','cost')|replace('管銷','admin')|replace('獎金','bonus') }}">{{ r[4] }}</span></td>
-            <td class="amount">{{ "{:,.0f}".format(r[3]) }}</td>
-            <td>{{ r[8] }}</td>
             <td>{{ r[7] if r[7] else '-' }}</td>
+            <td>{{ r[1] }}</td>
+            <td class="amount">{{ "{:,.0f}".format(r[3]) }}</td>
+            <td><span class="badge badge-{{ r[4]|replace('案場成本','cost')|replace('管銷','admin')|replace('獎金','bonus') }}">{{ r[4] }}</span></td>
+            <td>{{ r[8] }}</td>
+            <td>{{ r[6] }}</td>
+            <td>{{ r[5] if r[5] else '-' }}</td>
             <td>
                 <form method="POST" action="/delete/{{ r[0] }}" onsubmit="return confirm('確定要刪除這筆嗎？')">
                     <button type="submit" class="btn-delete">刪除</button>
@@ -45,7 +47,7 @@
     {% for r in reports %}
     <div class="card">
         <div class="card-header">
-            <span class="card-date">{{ r[6] }}</span>
+            <span class="card-date">{{ r[7] if r[7] else '匯款日期：-' }}</span>
             <form method="POST" action="/delete/{{ r[0] }}" onsubmit="return confirm('確定要刪除這筆嗎？')">
                 <button type="submit" class="btn-delete">刪除</button>
             </form>
@@ -56,20 +58,24 @@
                 <span class="card-value">{{ r[1] }}</span>
             </div>
             <div class="card-row">
-                <span class="card-label">款項分類</span>
-                <span class="card-value"><span class="badge badge-{{ r[4]|replace('案場成本','cost')|replace('管銷','admin')|replace('獎金','bonus') }}">{{ r[4] }}</span></span>
-            </div>
-            <div class="card-row">
                 <span class="card-label">請款金額</span>
                 <span class="card-value amount">{{ "{:,.0f}".format(r[3]) }}</span>
+            </div>
+            <div class="card-row">
+                <span class="card-label">款項分類</span>
+                <span class="card-value"><span class="badge badge-{{ r[4]|replace('案場成本','cost')|replace('管銷','admin')|replace('獎金','bonus') }}">{{ r[4] }}</span></span>
             </div>
             <div class="card-row">
                 <span class="card-label">案場名稱</span>
                 <span class="card-value">{{ r[8] }}</span>
             </div>
             <div class="card-row">
-                <span class="card-label">匯款日期</span>
-                <span class="card-value">{{ r[7] if r[7] else '-' }}</span>
+                <span class="card-label">發票收據日期</span>
+                <span class="card-value">{{ r[6] }}</span>
+            </div>
+            <div class="card-row">
+                <span class="card-label">發票收據編號</span>
+                <span class="card-value">{{ r[5] if r[5] else '-' }}</span>
             </div>
         </div>
     </div>
