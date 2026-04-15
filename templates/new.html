@@ -18,6 +18,7 @@
             {% endfor %}
         </datalist>
         <div id="vendor-hint" class="vendor-hint" style="display:none;"></div>
+        <div id="bank-info" class="bank-info-box" style="display:none;"></div>
     </div>
 
     <div class="form-group">
@@ -72,9 +73,31 @@
     </div>
 
     <div class="form-group">
+        <label>匯款方式 <span class="required">*</span></label>
+        <div class="radio-group">
+            <label class="radio-label">
+                <input type="radio" name="payment_method" value="現金" required
+                       {{ 'checked' if form and form.payment_method == '現金' else '' }}>
+                <span>現金</span>
+            </label>
+            <label class="radio-label">
+                <input type="radio" name="payment_method" value="公司轉帳"
+                       {{ 'checked' if form and form.payment_method == '公司轉帳' else '' }}>
+                <span>公司轉帳</span>
+            </label>
+            <label class="radio-label">
+                <input type="radio" name="payment_method" value="個帳轉帳"
+                       {{ 'checked' if form and form.payment_method == '個帳轉帳' else '' }}>
+                <span>個帳轉帳</span>
+            </label>
+        </div>
+    </div>
+
+    <div class="form-group">
         <label for="remit_date">匯款日期</label>
         <input type="date" id="remit_date" name="remit_date"
                value="{{ form.remit_date if form else '' }}">
+        <div class="field-hint">未填寫則預設為下月 5 日（{{ default_remit_date }}），遇假日自動順延</div>
     </div>
 
     <div class="form-group">

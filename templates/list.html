@@ -47,6 +47,7 @@
             <th>案場名稱</th>
             <th>發票收據日期</th>
             <th>發票收據編號</th>
+            <th>匯款方式</th>
             {% if user.role == 'admin' %}<th>最後修改</th>{% endif %}
             <th></th>
         </tr>
@@ -66,6 +67,7 @@
                     <td>{{ r[8] }}</td>
                     <td>{{ r[6] }}</td>
                     <td>{{ r[5] if r[5] else '-' }}</td>
+                    <td>{{ r[16] if r[16] else '-' }}</td>
                     <td class="text-muted">
                         {% if r[15] %}{{ r[15] }} · {{ r[14].strftime('%m/%d %H:%M') }}{% else %}—{% endif %}
                     </td>
@@ -85,6 +87,14 @@
                     <td><input form="edit-{{ r[0] }}" type="text" name="project_no" value="{{ r[8] }}" class="inline-edit-input" required></td>
                     <td><input form="edit-{{ r[0] }}" type="date" name="invoice_date" value="{{ r[6] if r[6] else '' }}" class="inline-edit-input" required></td>
                     <td><input form="edit-{{ r[0] }}" type="text" name="invoice_no" value="{{ r[5] if r[5] else '' }}" class="inline-edit-input"></td>
+                    <td>
+                        <select form="edit-{{ r[0] }}" name="payment_method" class="inline-edit-select">
+                            <option value="" {{ 'selected' if not r[16] }}>—</option>
+                            <option value="現金" {{ 'selected' if r[16] == '現金' }}>現金</option>
+                            <option value="公司轉帳" {{ 'selected' if r[16] == '公司轉帳' }}>公司轉帳</option>
+                            <option value="個帳轉帳" {{ 'selected' if r[16] == '個帳轉帳' }}>個帳轉帳</option>
+                        </select>
+                    </td>
                     <td class="text-muted">
                         {% if r[15] %}{{ r[15] }} · {{ r[14].strftime('%m/%d %H:%M') }}{% else %}—{% endif %}
                     </td>
@@ -113,6 +123,7 @@
                 <td>{{ r[8] }}</td>
                 <td>{{ r[6] }}</td>
                 <td>{{ r[5] if r[5] else '-' }}</td>
+                <td>{{ r[16] if r[16] else '-' }}</td>
                 <td>
                     {% if not r[12] %}
                     <form method="POST" action="/delete/{{ r[0] }}" onsubmit="return confirm('確定要刪除這筆嗎？')">
@@ -179,6 +190,15 @@
                     <span class="card-label">發票收據編號</span>
                     <input form="medit-{{ r[0] }}" type="text" name="invoice_no" value="{{ r[5] if r[5] else '' }}" class="inline-edit-input">
                 </div>
+                <div class="card-row">
+                    <span class="card-label">匯款方式</span>
+                    <select form="medit-{{ r[0] }}" name="payment_method" class="inline-edit-select">
+                        <option value="" {{ 'selected' if not r[16] }}>—</option>
+                        <option value="現金" {{ 'selected' if r[16] == '現金' }}>現金</option>
+                        <option value="公司轉帳" {{ 'selected' if r[16] == '公司轉帳' }}>公司轉帳</option>
+                        <option value="個帳轉帳" {{ 'selected' if r[16] == '個帳轉帳' }}>個帳轉帳</option>
+                    </select>
+                </div>
                 <div class="card-row card-row-remit">
                     <span class="card-label">匯款日期</span>
                     <input form="medit-{{ r[0] }}" type="date" name="remit_date" value="{{ r[7] if r[7] else '' }}" class="inline-edit-input">
@@ -197,6 +217,7 @@
                 <div class="card-row"><span class="card-label">案場名稱</span><span class="card-value">{{ r[8] }}</span></div>
                 <div class="card-row"><span class="card-label">發票收據日期</span><span class="card-value">{{ r[6] }}</span></div>
                 <div class="card-row"><span class="card-label">發票收據編號</span><span class="card-value">{{ r[5] if r[5] else '-' }}</span></div>
+                <div class="card-row"><span class="card-label">匯款方式</span><span class="card-value">{{ r[16] if r[16] else '-' }}</span></div>
                 <div class="card-row card-row-remit"><span class="card-label">匯款日期</span><span class="card-value">{{ r[7] if r[7] else '-' }}</span></div>
 
             {# --- 設計師版（手機版）--- #}
@@ -207,6 +228,7 @@
                 <div class="card-row"><span class="card-label">案場名稱</span><span class="card-value">{{ r[8] }}</span></div>
                 <div class="card-row"><span class="card-label">發票收據日期</span><span class="card-value">{{ r[6] }}</span></div>
                 <div class="card-row"><span class="card-label">發票收據編號</span><span class="card-value">{{ r[5] if r[5] else '-' }}</span></div>
+                <div class="card-row"><span class="card-label">匯款方式</span><span class="card-value">{{ r[16] if r[16] else '-' }}</span></div>
                 <div class="card-row card-row-remit">
                     <span class="card-label">匯款日期</span>
                     <form method="POST" action="/update-remit-date/{{ r[0] }}" class="inline-date-form">
@@ -226,6 +248,54 @@
     </div>
     {% endfor %}
 </div>
+
+{# ===== 重複廠商警示 ===== #}
+{% if dup_flags %}
+<div class="dup-warning-panel">
+    <h3>可能重複的廠商</h3>
+    {% for vendor, dups in dup_flags.items() %}
+    <div class="dup-item">
+        <span class="dup-vendor">{{ vendor }}</span>
+        <span class="dup-arrow">&harr;</span>
+        <span class="dup-list">{{ dups|join('、') }}</span>
+        <span class="dup-amount">合計 {{ "{:,.0f}".format(vendor_totals.get(vendor, 0)) }}</span>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+{# ===== 加總區塊 ===== #}
+{% if reports %}
+<div class="summary-panel">
+    <h3>請款加總</h3>
+    <div class="summary-section">
+        <h4>按廠商</h4>
+        <div class="summary-list">
+            {% for vendor, total in vendor_totals.items()|sort(attribute='1', reverse=true) %}
+            <div class="summary-row {{ 'dup-highlight' if vendor in dup_flags }}">
+                <span class="summary-label">{{ vendor }}{% if vendor in dup_flags %} ⚠{% endif %}</span>
+                <span class="summary-value amount">{{ "{:,.0f}".format(total) }}</span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    <div class="summary-section">
+        <h4>按匯款方式</h4>
+        <div class="summary-list">
+            {% for method, total in method_totals.items() %}
+            <div class="summary-row">
+                <span class="summary-label">{{ method }}</span>
+                <span class="summary-value amount">{{ "{:,.0f}".format(total) }}</span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    <div class="summary-total">
+        <span>總計</span>
+        <span class="amount">{{ "{:,.0f}".format(grand_total) }}</span>
+    </div>
+</div>
+{% endif %}
 
 {% else %}
 <div class="empty-state">

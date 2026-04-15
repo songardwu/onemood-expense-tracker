@@ -15,6 +15,7 @@
         <a href="/" class="nav-brand">出帳管理</a>
         <div class="nav-right">
             <span class="nav-user">{{ user.display_name }}</span>
+            <a href="/vendors" class="nav-link">廠商資料</a>
             {% if user.role == 'admin' %}
             <a href="/users" class="nav-link">帳號管理</a>
             {% endif %}

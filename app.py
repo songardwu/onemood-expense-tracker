@@ -11,12 +11,91 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 load_dotenv('.env.local')
 
+# =====================
+# 台灣國定假日 + 匯款日期計算
+# =====================
+TW_HOLIDAYS_2026 = {
+    date(2026, 1, 1),   # 元旦
+    date(2026, 1, 2),   # 元旦補假
+    date(2026, 2, 14),  # 除夕前調整放假
+    date(2026, 2, 15),  # 除夕前調整放假
+    date(2026, 2, 16),  # 除夕
+    date(2026, 2, 17),  # 春節
+    date(2026, 2, 18),  # 春節
+    date(2026, 2, 19),  # 春節
+    date(2026, 2, 20),  # 春節補假
+    date(2026, 2, 28),  # 和平紀念日（六）
+    date(2026, 3, 2),   # 和平紀念日補假（一）
+    date(2026, 4, 3),   # 兒童節（五）
+    date(2026, 4, 4),   # 清明節（六）
+    date(2026, 4, 6),   # 清明補假（一）
+    date(2026, 5, 1),   # 勞動節
+    date(2026, 5, 31),  # 端午節（日）
+    date(2026, 6, 1),   # 端午補假（一）
+    date(2026, 10, 1),  # 中秋節（四）
+    date(2026, 10, 2),  # 中秋節補假（五）
+    date(2026, 10, 10), # 國慶日（六）
+    date(2026, 10, 12), # 國慶補假（一）
+}
+
+TW_HOLIDAYS_2027 = {
+    date(2027, 1, 1),   # 元旦
+    date(2027, 2, 5),   # 除夕前
+    date(2027, 2, 6),   # 除夕
+    date(2027, 2, 7),   # 春節
+    date(2027, 2, 8),   # 春節
+    date(2027, 2, 9),   # 春節
+    date(2027, 2, 10),  # 春節補假
+    date(2027, 2, 28),  # 和平紀念日（日）
+    date(2027, 3, 1),   # 和平紀念日補假
+    date(2027, 4, 4),   # 清明節（日）
+    date(2027, 4, 5),   # 兒童節（一）
+    date(2027, 5, 1),   # 勞動節
+    date(2027, 6, 19),  # 端午節（六）
+    date(2027, 6, 21),  # 端午補假（一）
+    date(2027, 9, 25),  # 中秋節（六）
+    date(2027, 9, 27),  # 中秋補假（一）
+    date(2027, 10, 10), # 國慶日（日）
+    date(2027, 10, 11), # 國慶補假（一）
+}
+
+TW_HOLIDAYS = TW_HOLIDAYS_2026 | TW_HOLIDAYS_2027
+
+
+def is_business_day(d):
+    """判斷是否為工作日（排除週末 + 台灣國定假日）"""
+    if d.weekday() >= 5:  # 六=5, 日=6
+        return False
+    if d in TW_HOLIDAYS:
+        return False
+    return True
+
+
+def next_business_day(d):
+    """找到 d 當天或之後的第一個工作日"""
+    while not is_business_day(d):
+        d += timedelta(days=1)
+    return d
+
+
+def default_remit_date(from_date=None):
+    """計算預設匯款日期：下個月 5 日，遇假日順延"""
+    if from_date is None:
+        from_date = date.today()
+    # 下個月
+    if from_date.month == 12:
+        target = date(from_date.year + 1, 1, 5)
+    else:
+        target = date(from_date.year, from_date.month + 1, 5)
+    return next_business_day(target)
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 app = Flask(__name__,
             template_folder=os.path.join(BASE_DIR, 'templates'),
             static_folder=os.path.join(BASE_DIR, 'static'))
 
-app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-change-me')
+app.secret_key = os.environ['SECRET_KEY']
+app.config['SESSION_COOKIE_SECURE'] = bool(os.environ.get('VERCEL'))
 app.permanent_session_lifetime = timedelta(days=7)
 
 
@@ -61,6 +140,17 @@ def admin_required(f):
             return redirect('/')
         return f(*args, **kwargs)
     return decorated
+
+
+# =====================
+# 安全 HTTP headers
+# =====================
+@app.after_request
+def set_security_headers(response):
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['X-Frame-Options'] = 'DENY'
+    response.headers['Content-Security-Policy'] = "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'"
+    return response
 
 
 # =====================
@@ -123,7 +213,7 @@ def index():
                    r.invoice_no, r.invoice_date, r.remit_date, r.project_no,
                    r.stage, r.created_at, u.display_name,
                    r.is_locked, r.updated_by, r.updated_at,
-                   u2.display_name as updater_name
+                   u2.display_name as updater_name, r.payment_method
             FROM reports r
             JOIN users u ON r.user_id = u.id
             LEFT JOIN users u2 ON r.updated_by = u2.id
@@ -135,7 +225,7 @@ def index():
                    r.invoice_no, r.invoice_date, r.remit_date, r.project_no,
                    r.stage, r.created_at, NULL as display_name,
                    r.is_locked, NULL as updated_by, NULL as updated_at,
-                   NULL as updater_name
+                   NULL as updater_name, r.payment_method
             FROM reports r
             WHERE r.user_id = %s
             ORDER BY r.invoice_date DESC, r.created_at DESC
@@ -155,9 +245,71 @@ def index():
         projects = [{'project_no': r[0], 'any_locked': r[1], 'cnt': r[2]}
                     for r in cur.fetchall()]
 
+    # 廠商加總 + 匯款方式分計 + 總計
+    from collections import defaultdict
+    vendor_totals = defaultdict(float)
+    method_totals = defaultdict(float)
+    grand_total = 0.0
+    for r in rows:
+        amt = float(r[3]) if r[3] else 0
+        vendor_totals[r[1]] += amt
+        method_totals[r[16] or '未設定'] += amt
+        grand_total += amt
+
+    # 相似廠商 / 同帳號標記（廠商名稱相同 OR 銀行帳號相同 → 合併群組）
+    cur.execute("SELECT name, account_no FROM vendors")
+    vendor_accounts = {row[0]: row[1] for row in cur.fetchall()}
+
+    # 建立合併群組：account_no → [vendor_names]
+    acct_to_vendors = defaultdict(set)
+    for vname, acct in vendor_accounts.items():
+        if acct:
+            acct_to_vendors[acct].add(vname)
+
+    # 載入相似比對關鍵字
+    cur.execute("SELECT keyword FROM vendor_keywords")
+    keywords = [row[0] for row in cur.fetchall()]
+
+    def get_core(name):
+        c = name
+        for kw in keywords:
+            c = c.replace(kw, '')
+        return c.strip()
+
+    # 偵測重複：名稱相似 OR 帳號相同
+    all_vendors = list(vendor_totals.keys())
+    dup_flags = {}  # vendor_name → set of similar vendor names
+    for i, v1 in enumerate(all_vendors):
+        core1 = get_core(v1)
+        acct1 = vendor_accounts.get(v1, '')
+        for v2 in all_vendors[i+1:]:
+            core2 = get_core(v2)
+            acct2 = vendor_accounts.get(v2, '')
+            is_similar = False
+            # 名稱相似
+            if core1 and core2 and (core1 == core2 or core1 in core2 or core2 in core1):
+                is_similar = True
+            # 帳號相同
+            if acct1 and acct2 and acct1 == acct2:
+                is_similar = True
+            if is_similar:
+                dup_flags.setdefault(v1, set()).add(v2)
+                dup_flags.setdefault(v2, set()).add(v1)
+
+    # 同帳號合併加總
+    acct_totals = defaultdict(float)
+    for vname, amt in vendor_totals.items():
+        acct = vendor_accounts.get(vname, '')
+        if acct:
+            acct_totals[acct] += amt
+
     cur.close()
     conn.close()
-    return render_template('list.html', reports=rows, user=user, projects=projects)
+    return render_template('list.html', reports=rows, user=user, projects=projects,
+                           vendor_totals=dict(vendor_totals),
+                           method_totals=dict(method_totals),
+                           grand_total=grand_total,
+                           dup_flags={k: list(v) for k, v in dup_flags.items()})
 
 
 # =====================
@@ -176,7 +328,8 @@ def new_report():
     cur.close()
     conn.close()
     return render_template('new.html', vendors=vendors, vendor_types=vendor_types,
-                           today=date.today().isoformat(), user=user)
+                           today=date.today().isoformat(), user=user,
+                           default_remit_date=default_remit_date().isoformat())
 
 
 # =====================
@@ -195,6 +348,11 @@ def submit():
     remit_date = request.form.get('remit_date', '').strip() or None
     project_no = request.form.get('project_no', '').strip()
     stage = request.form.get('stage', '').strip() or None
+    payment_method = request.form.get('payment_method', '').strip()
+
+    # 匯款日期未填 → 預設下月 5 日（遇假日順延）
+    if not remit_date:
+        remit_date = default_remit_date().isoformat()
 
     errors = []
     if not vendor:
@@ -212,6 +370,8 @@ def submit():
             errors.append('請款金額必須為數字')
     if category not in ('案場成本', '管銷', '獎金'):
         errors.append('款項分類必須為案場成本、管銷或獎金')
+    if payment_method not in ('現金', '公司轉帳', '個帳轉帳'):
+        errors.append('匯款方式必須為現金、公司轉帳或個帳轉帳')
     if not invoice_date:
         errors.append('發票收據日期為必填')
     if not project_no:
@@ -245,10 +405,12 @@ def submit():
     cur = conn.cursor()
     cur.execute("""
         INSERT INTO reports (vendor, vendor_type, amount, category,
-                             invoice_no, invoice_date, remit_date, project_no, stage, user_id)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                             invoice_no, invoice_date, remit_date, project_no, stage,
+                             payment_method, user_id)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     """, (vendor, vendor_type, amount_str, category,
-          invoice_no, invoice_date, remit_date, project_no, stage, user['id']))
+          invoice_no, invoice_date, remit_date, project_no, stage,
+          payment_method, user['id']))
     conn.commit()
     cur.close()
     conn.close()
@@ -295,18 +457,22 @@ def update_remit_date(report_id):
     conn = get_conn()
     cur = conn.cursor()
 
-    if user['role'] == 'designer':
-        cur.execute("SELECT user_id FROM reports WHERE id = %s", (report_id,))
-        row = cur.fetchone()
-        if not row or row[0] != user['id']:
-            cur.close()
-            conn.close()
-            abort(403)
-        cur.execute("UPDATE reports SET remit_date = %s WHERE id = %s",
-                    (remit_date, report_id))
-    else:
-        cur.execute("UPDATE reports SET remit_date = %s WHERE id = %s",
-                    (remit_date, report_id))
+    # 檢查存在 + 鎖定
+    cur.execute("SELECT user_id, is_locked FROM reports WHERE id = %s", (report_id,))
+    row = cur.fetchone()
+    if not row:
+        cur.close(); conn.close()
+        abort(404)
+    if row[1]:  # is_locked
+        cur.close(); conn.close()
+        abort(403)
+
+    if user['role'] == 'designer' and row[0] != user['id']:
+        cur.close(); conn.close()
+        abort(403)
+
+    cur.execute("UPDATE reports SET remit_date = %s WHERE id = %s",
+                (remit_date, report_id))
 
     conn.commit()
     cur.close()
@@ -336,11 +502,31 @@ def update_report(report_id):
 
     vendor = request.form.get('vendor', '').strip()
     category = request.form.get('category', '').strip()
-    amount = request.form.get('amount', '').strip()
+    amount_str = request.form.get('amount', '').strip()
     invoice_no = request.form.get('invoice_no', '').strip() or None
     invoice_date = request.form.get('invoice_date', '').strip()
     remit_date = request.form.get('remit_date', '').strip() or None
     project_no = request.form.get('project_no', '').strip()
+    payment_method = request.form.get('payment_method', '').strip() or None
+
+    # 輸入驗證
+    if not vendor or not invoice_date or not project_no:
+        cur.close(); conn.close()
+        return redirect('/')
+    if category not in ('案場成本', '管銷', '獎金'):
+        cur.close(); conn.close()
+        return redirect('/')
+    if payment_method and payment_method not in ('現金', '公司轉帳', '個帳轉帳'):
+        cur.close(); conn.close()
+        return redirect('/')
+    try:
+        amount = float(amount_str)
+        if amount <= 0:
+            cur.close(); conn.close()
+            return redirect('/')
+    except (ValueError, TypeError):
+        cur.close(); conn.close()
+        return redirect('/')
 
     # 發票防呆（排除自己）
     if invoice_no:
@@ -355,10 +541,11 @@ def update_report(report_id):
         UPDATE reports
         SET vendor = %s, category = %s, amount = %s,
             invoice_no = %s, invoice_date = %s, remit_date = %s,
-            project_no = %s, updated_by = %s, updated_at = NOW()
+            project_no = %s, payment_method = %s,
+            updated_by = %s, updated_at = NOW()
         WHERE id = %s
-    """, (vendor, category, amount, invoice_no, invoice_date,
-          remit_date, project_no, user['id'], report_id))
+    """, (vendor, category, amount_str, invoice_no, invoice_date,
+          remit_date, project_no, payment_method, user['id'], report_id))
     conn.commit()
     cur.close()
     conn.close()
@@ -415,20 +602,263 @@ def check_vendor():
         return jsonify({'similar': []})
 
     cur.execute("SELECT DISTINCT vendor FROM reports WHERE vendor != %s", (q,))
-    vendors = [row[0] for row in cur.fetchall()]
+    report_vendors = [row[0] for row in cur.fetchall()]
+
+    # 也查 vendors 表中的廠商
+    cur.execute("SELECT name, account_no FROM vendors")
+    vendor_accounts = {row[0]: row[1] for row in cur.fetchall()}
+
+    # 查詢輸入廠商的銀行帳號
+    q_account = vendor_accounts.get(q, '')
+
     cur.close()
     conn.close()
 
-    similar = []
-    for v in vendors:
+    similar = set()
+    all_names = set(report_vendors) | set(vendor_accounts.keys())
+    all_names.discard(q)
+
+    for v in all_names:
         v_core = v
         for kw in keywords:
             v_core = v_core.replace(kw, '')
         v_core = v_core.strip()
+        # 名稱相似
         if v_core and (v_core == core or core in v_core or v_core in core):
-            similar.append(v)
+            similar.add(v)
+        # 銀行帳號相同
+        if q_account and vendor_accounts.get(v, '') == q_account:
+            similar.add(v)
 
-    return jsonify({'similar': similar})
+    return jsonify({'similar': sorted(similar)})
+
+
+# =====================
+# 廠商匯款資料管理
+# =====================
+@app.route('/vendors')
+@login_required
+def vendor_list():
+    user = get_current_user()
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT id, name, bank_name, bank_code, account_no, account_name
+        FROM vendors ORDER BY name
+    """)
+    vendors = cur.fetchall()
+    cur.close()
+    conn.close()
+
+    error = request.args.get('error')
+    error_msg = None
+    if error == 'missing':
+        error_msg = '所有欄位皆為必填'
+    elif error == 'duplicate':
+        error_msg = '此廠商名稱已存在'
+    elif error == 'nofile':
+        error_msg = '請選擇檔案'
+    elif error == 'badformat':
+        error_msg = '僅支援 .xlsx 或 .csv 格式'
+    elif error == 'badcolumns':
+        error_msg = '檔案欄位不符，請使用範本格式'
+
+    import_result = session.pop('import_result', None)
+    return render_template('vendors.html', vendors=vendors, user=user,
+                           error=error_msg, import_result=import_result)
+
+
+@app.route('/vendors/create', methods=['POST'])
+@login_required
+def vendor_create():
+    user = get_current_user()
+    name = request.form.get('name', '').strip()
+    bank_name = request.form.get('bank_name', '').strip()
+    bank_code = request.form.get('bank_code', '').strip()
+    account_no = request.form.get('account_no', '').strip()
+    account_name = request.form.get('account_name', '').strip()
+
+    if not all([name, bank_name, bank_code, account_no, account_name]):
+        return redirect('/vendors?error=missing')
+
+    conn = get_conn()
+    cur = conn.cursor()
+    try:
+        cur.execute("""
+            INSERT INTO vendors (name, bank_name, bank_code, account_no,
+                                 account_name, created_by)
+            VALUES (%s, %s, %s, %s, %s, %s)
+        """, (name, bank_name, bank_code, account_no, account_name, user['id']))
+        conn.commit()
+    except psycopg2.errors.UniqueViolation:
+        conn.rollback()
+        cur.close(); conn.close()
+        return redirect('/vendors?error=duplicate')
+    cur.close()
+    conn.close()
+    return redirect('/vendors')
+
+
+@app.route('/vendors/update/<int:vendor_id>', methods=['POST'])
+@admin_required
+def vendor_update(vendor_id):
+    user = get_current_user()
+    name = request.form.get('name', '').strip()
+    bank_name = request.form.get('bank_name', '').strip()
+    bank_code = request.form.get('bank_code', '').strip()
+    account_no = request.form.get('account_no', '').strip()
+    account_name = request.form.get('account_name', '').strip()
+
+    if not all([name, bank_name, bank_code, account_no, account_name]):
+        return redirect('/vendors?error=missing')
+
+    conn = get_conn()
+    cur = conn.cursor()
+    try:
+        cur.execute("""
+            UPDATE vendors
+            SET name = %s, bank_name = %s, bank_code = %s,
+                account_no = %s, account_name = %s,
+                updated_by = %s, updated_at = NOW()
+            WHERE id = %s
+        """, (name, bank_name, bank_code, account_no, account_name,
+              user['id'], vendor_id))
+        conn.commit()
+    except psycopg2.errors.UniqueViolation:
+        conn.rollback()
+        cur.close(); conn.close()
+        return redirect('/vendors?error=duplicate')
+    cur.close()
+    conn.close()
+    return redirect('/vendors')
+
+
+@app.route('/vendors/delete/<int:vendor_id>', methods=['POST'])
+@admin_required
+def vendor_delete(vendor_id):
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM vendors WHERE id = %s", (vendor_id,))
+    conn.commit()
+    cur.close()
+    conn.close()
+    return redirect('/vendors')
+
+
+@app.route('/vendors/template')
+@login_required
+def vendor_template():
+    df = pd.DataFrame(columns=['名稱', '銀行分行名稱', '銀行代碼', '帳號', '戶名'])
+    output = BytesIO()
+    df.to_excel(output, index=False, engine='openpyxl')
+    output.seek(0)
+    return send_file(output, as_attachment=True,
+                     download_name='廠商匯款資料範本.xlsx',
+                     mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+
+
+@app.route('/vendors/import', methods=['POST'])
+@login_required
+def vendor_import():
+    user = get_current_user()
+    file = request.files.get('file')
+    if not file or not file.filename:
+        return redirect('/vendors?error=nofile')
+
+    filename = file.filename.lower()
+    try:
+        if filename.endswith('.xlsx'):
+            df = pd.read_excel(file, dtype=str)
+        elif filename.endswith('.csv'):
+            df = pd.read_csv(file, dtype=str)
+        else:
+            return redirect('/vendors?error=badformat')
+    except Exception:
+        return redirect('/vendors?error=badformat')
+
+    col_map = {
+        '名稱': 'name', '廠商名稱': 'name',
+        '銀行分行名稱': 'bank_name', '銀行分行': 'bank_name',
+        '銀行代碼': 'bank_code',
+        '帳號': 'account_no', '銀行帳號': 'account_no',
+        '戶名': 'account_name',
+    }
+    df.rename(columns=col_map, inplace=True)
+
+    required = ['name', 'bank_name', 'bank_code', 'account_no', 'account_name']
+    if not all(c in df.columns for c in required):
+        return redirect('/vendors?error=badcolumns')
+
+    added = 0; updated = 0; skipped = 0; errors = []
+
+    conn = get_conn()
+    cur = conn.cursor()
+    for idx, row in df.iterrows():
+        name = str(row.get('name', '')).strip()
+        bank_name = str(row.get('bank_name', '')).strip()
+        bank_code = str(row.get('bank_code', '')).strip()
+        account_no = str(row.get('account_no', '')).strip()
+        account_name = str(row.get('account_name', '')).strip()
+
+        if not all([name, bank_name, bank_code, account_no, account_name]):
+            errors.append(f'第 {idx+2} 列：欄位不完整')
+            continue
+
+        cur.execute("SELECT id FROM vendors WHERE name = %s", (name,))
+        existing = cur.fetchone()
+
+        if existing:
+            if user['role'] == 'admin':
+                cur.execute("""
+                    UPDATE vendors
+                    SET bank_name = %s, bank_code = %s, account_no = %s,
+                        account_name = %s, updated_by = %s, updated_at = NOW()
+                    WHERE id = %s
+                """, (bank_name, bank_code, account_no, account_name,
+                      user['id'], existing[0]))
+                updated += 1
+            else:
+                skipped += 1
+        else:
+            cur.execute("""
+                INSERT INTO vendors (name, bank_name, bank_code, account_no,
+                                     account_name, created_by)
+                VALUES (%s, %s, %s, %s, %s, %s)
+            """, (name, bank_name, bank_code, account_no, account_name, user['id']))
+            added += 1
+
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    session['import_result'] = {
+        'added': added, 'updated': updated,
+        'skipped': skipped, 'errors': errors
+    }
+    return redirect('/vendors')
+
+
+@app.route('/api/vendor-bank')
+@login_required
+def vendor_bank():
+    name = request.args.get('name', '').strip()
+    if not name:
+        return jsonify({})
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT bank_name, bank_code, account_no, account_name
+        FROM vendors WHERE name = %s
+    """, (name,))
+    row = cur.fetchone()
+    cur.close()
+    conn.close()
+    if row:
+        return jsonify({
+            'bank_name': row[0], 'bank_code': row[1],
+            'account_no': row[2], 'account_name': row[3]
+        })
+    return jsonify({})
 
 
 # =====================
@@ -445,18 +875,22 @@ def export():
         df = pd.read_sql("""
             SELECT u.display_name as reporter, r.invoice_date, r.vendor_type,
                    r.vendor, r.project_no, r.stage, r.category, r.amount,
-                   r.invoice_no, r.remit_date
+                   r.invoice_no, r.remit_date, r.payment_method,
+                   v.bank_name, v.bank_code, v.account_no, v.account_name
             FROM reports r
             JOIN users u ON r.user_id = u.id
+            LEFT JOIN vendors v ON r.vendor = v.name
             ORDER BY r.vendor_type, r.vendor, r.invoice_date
         """, conn)
     else:
         df = pd.read_sql("""
-            SELECT invoice_date, vendor_type, vendor, project_no, stage,
-                   category, amount, invoice_no, remit_date
-            FROM reports
-            WHERE user_id = %s
-            ORDER BY vendor_type, vendor, invoice_date
+            SELECT r.invoice_date, r.vendor_type, r.vendor, r.project_no, r.stage,
+                   r.category, r.amount, r.invoice_no, r.remit_date, r.payment_method,
+                   v.bank_name, v.bank_code, v.account_no, v.account_name
+            FROM reports r
+            LEFT JOIN vendors v ON r.vendor = v.name
+            WHERE r.user_id = %s
+            ORDER BY r.vendor_type, r.vendor, r.invoice_date
         """, conn, params=(user['id'],))
 
     conn.close()
@@ -491,7 +925,12 @@ def write_detail_sheet(df, writer, is_admin=False):
             'category': '款項分類',
             'amount': '請款金額',
             'invoice_no': '發票收據編號',
+            'payment_method': '匯款方式',
             'remit_date': '匯款日期',
+            'bank_name': '銀行分行名稱',
+            'bank_code': '銀行代碼',
+            'account_no': '銀行帳號',
+            'account_name': '戶名',
         }
     else:
         col_map = {
@@ -503,7 +942,12 @@ def write_detail_sheet(df, writer, is_admin=False):
             'category': '款項分類',
             'amount': '請款金額',
             'invoice_no': '發票收據編號',
+            'payment_method': '匯款方式',
             'remit_date': '匯款日期',
+            'bank_name': '銀行分行名稱',
+            'bank_code': '銀行代碼',
+            'account_no': '銀行帳號',
+            'account_name': '戶名',
         }
 
     rows = []

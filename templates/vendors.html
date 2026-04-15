@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>廠商匯款資料</h1>
+<a href="/" class="back-link">&larr; 回清單</a>
+
+{% if error %}
+<div class="error-banner">{{ error }}</div>
+{% endif %}
+
+{% if import_result %}
+<div class="import-result">
+    匯入完成：新增 {{ import_result.added }} 筆
+    {% if import_result.updated %}、更新 {{ import_result.updated }} 筆{% endif %}
+    {% if import_result.skipped %}、跳過 {{ import_result.skipped }} 筆（已存在）{% endif %}
+    {% if import_result.errors %}
+    <ul class="import-errors">
+        {% for e in import_result.errors %}
+        <li>{{ e }}</li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+</div>
+{% endif %}
+
+<div class="actions">
+    <a href="/vendors/template" class="btn btn-secondary">下載範本</a>
+    <form method="POST" action="/vendors/import" enctype="multipart/form-data" class="inline-form import-form">
+        <input type="file" name="file" accept=".xlsx,.csv" required>
+        <button type="submit" class="btn btn-secondary">匯入</button>
+    </form>
+</div>
+
+{# === 新增廠商表單 === #}
+<details class="vendor-add-panel" open>
+    <summary>新增廠商</summary>
+    <form method="POST" action="/vendors/create" class="vendor-form">
+        <div class="vendor-form-row">
+            <input type="text" name="name" placeholder="名稱 *" required>
+            <input type="text" name="bank_name" placeholder="銀行分行名稱 *" required>
+            <input type="text" name="bank_code" placeholder="銀行代碼 *" required>
+            <input type="text" name="account_no" placeholder="帳號 *" required>
+            <input type="text" name="account_name" placeholder="戶名 *" required>
+            <button type="submit" class="btn btn-primary">新增</button>
+        </div>
+    </form>
+</details>
+
+{% if vendors %}
+<!-- ===== 桌面版表格 ===== -->
+<table class="desktop-table vendor-table">
+    <thead>
+        <tr>
+            <th>名稱</th>
+            <th>銀行分行名稱</th>
+            <th>銀行代碼</th>
+            <th>帳號</th>
+            <th>戶名</th>
+            {% if user.role == 'admin' %}<th></th>{% endif %}
+        </tr>
+    </thead>
+    <tbody>
+        {% for v in vendors %}
+        <tr>
+            {% if user.role == 'admin' %}
+                <td><input form="vedit-{{ v[0] }}" type="text" name="name" value="{{ v[1] }}" class="inline-edit-input" required></td>
+                <td><input form="vedit-{{ v[0] }}" type="text" name="bank_name" value="{{ v[2] }}" class="inline-edit-input" required></td>
+                <td><input form="vedit-{{ v[0] }}" type="text" name="bank_code" value="{{ v[3] }}" class="inline-edit-input" required></td>
+                <td><input form="vedit-{{ v[0] }}" type="text" name="account_no" value="{{ v[4] }}" class="inline-edit-input" required></td>
+                <td><input form="vedit-{{ v[0] }}" type="text" name="account_name" value="{{ v[5] }}" class="inline-edit-input" required></td>
+                <td class="actions-cell">
+                    <form id="vedit-{{ v[0] }}" method="POST" action="/vendors/update/{{ v[0] }}">
+                        <button type="submit" class="btn-save">儲存</button>
+                    </form>
+                    <form method="POST" action="/vendors/delete/{{ v[0] }}" onsubmit="return confirm('確定要刪除此廠商嗎？')">
+                        <button type="submit" class="btn-delete">刪除</button>
+                    </form>
+                </td>
+            {% else %}
+                <td>{{ v[1] }}</td>
+                <td>{{ v[2] }}</td>
+                <td>{{ v[3] }}</td>
+                <td>{{ v[4] }}</td>
+                <td>{{ v[5] }}</td>
+            {% endif %}
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<!-- ===== 手機版卡片 ===== -->
+<div class="mobile-cards">
+    {% for v in vendors %}
+    <div class="card">
+        <div class="card-header">
+            <span class="card-date">{{ v[1] }}</span>
+            {% if user.role == 'admin' %}
+            <form method="POST" action="/vendors/delete/{{ v[0] }}" onsubmit="return confirm('確定要刪除此廠商嗎？')">
+                <button type="submit" class="btn-delete">刪除</button>
+            </form>
+            {% endif %}
+        </div>
+        <div class="card-body">
+            {% if user.role == 'admin' %}
+                <div class="card-row">
+                    <span class="card-label">名稱</span>
+                    <input form="mvedit-{{ v[0] }}" type="text" name="name" value="{{ v[1] }}" class="inline-edit-input" required>
+                </div>
+                <div class="card-row">
+                    <span class="card-label">銀行分行</span>
+                    <input form="mvedit-{{ v[0] }}" type="text" name="bank_name" value="{{ v[2] }}" class="inline-edit-input" required>
+                </div>
+                <div class="card-row">
+                    <span class="card-label">銀行代碼</span>
+                    <input form="mvedit-{{ v[0] }}" type="text" name="bank_code" value="{{ v[3] }}" class="inline-edit-input" required>
+                </div>
+                <div class="card-row">
+                    <span class="card-label">帳號</span>
+                    <input form="mvedit-{{ v[0] }}" type="text" name="account_no" value="{{ v[4] }}" class="inline-edit-input" required>
+                </div>
+                <div class="card-row">
+                    <span class="card-label">戶名</span>
+                    <input form="mvedit-{{ v[0] }}" type="text" name="account_name" value="{{ v[5] }}" class="inline-edit-input" required>
+                </div>
+                <div class="card-row">
+                    <form id="mvedit-{{ v[0] }}" method="POST" action="/vendors/update/{{ v[0] }}">
+                        <button type="submit" class="btn-save" style="width:100%;">儲存</button>
+                    </form>
+                </div>
+            {% else %}
+                <div class="card-row"><span class="card-label">銀行分行</span><span class="card-value">{{ v[2] }}</span></div>
+                <div class="card-row"><span class="card-label">銀行代碼</span><span class="card-value">{{ v[3] }}</span></div>
+                <div class="card-row"><span class="card-label">帳號</span><span class="card-value">{{ v[4] }}</span></div>
+                <div class="card-row"><span class="card-label">戶名</span><span class="card-value">{{ v[5] }}</span></div>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+{% else %}
+<div class="empty-state">
+    <p>目前沒有廠商資料</p>
+    <p>點擊上方「新增廠商」或使用「匯入」批次新增</p>
+</div>
+{% endif %}
+{% endblock %}
