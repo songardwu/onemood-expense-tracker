@@ -257,8 +257,10 @@ def index():
         grand_total += amt
 
     # 相似廠商 / 同帳號標記（廠商名稱相同 OR 銀行帳號相同 → 合併群組）
-    cur.execute("SELECT name, account_no FROM vendors")
-    vendor_accounts = {row[0]: row[1] for row in cur.fetchall()}
+    cur.execute("SELECT name, account_no, bank_name, bank_code, account_name FROM vendors")
+    vendor_rows = cur.fetchall()
+    vendor_accounts = {row[0]: row[1] for row in vendor_rows}
+    vendor_bank_info = {row[0]: {'account_no': row[1], 'bank_name': row[2], 'bank_code': row[3], 'account_name': row[4]} for row in vendor_rows}
 
     # 建立合併群組：account_no → [vendor_names]
     acct_to_vendors = defaultdict(set)
@@ -309,7 +311,8 @@ def index():
                            vendor_totals=dict(vendor_totals),
                            method_totals=dict(method_totals),
                            grand_total=grand_total,
-                           dup_flags={k: list(v) for k, v in dup_flags.items()})
+                           dup_flags={k: list(v) for k, v in dup_flags.items()},
+                           vendor_bank_info=vendor_bank_info)
 
 
 # =====================

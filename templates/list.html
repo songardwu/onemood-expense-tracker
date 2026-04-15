@@ -265,7 +265,12 @@
         <div class="summary-list">
             {% for vendor, total in vendor_totals.items()|sort(attribute='1', reverse=true) %}
             <div class="summary-row {{ 'dup-highlight' if vendor in dup_flags }}">
-                <span class="summary-label">{{ vendor }}</span>
+                <span class="summary-label">
+                    {{ vendor }}
+                    {% if vendor_bank_info.get(vendor) and vendor_bank_info[vendor].account_no %}
+                    <span class="summary-bank">{{ vendor_bank_info[vendor].bank_name }}（{{ vendor_bank_info[vendor].bank_code }}）{{ vendor_bank_info[vendor].account_no }} {{ vendor_bank_info[vendor].account_name }}</span>
+                    {% endif %}
+                </span>
                 <span class="summary-value amount">{{ "{:,.0f}".format(total) }}</span>
             </div>
             {% endfor %}
