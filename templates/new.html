@@ -7,6 +7,8 @@
 <div class="error-msg">{{ error }}</div>
 {% endif %}
 
+<div class="bento-grid">
+<div class="bento-cell bento-cell--full">
 <form method="POST" action="/submit" class="report-form">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div class="form-group">
@@ -115,5 +117,7 @@
 
     <button type="submit" class="btn btn-primary btn-submit">送出</button>
 </form>
+</div>
+</div>
 <script src="/static/app.js"></script>
 {% endblock %}

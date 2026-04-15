@@ -3,7 +3,8 @@
 <a href="/" class="back-link">&larr; 返回</a>
 <h1>帳號管理</h1>
 
-<div class="section-card">
+<div class="bento-grid">
+<div class="bento-cell bento-cell--full">
     <h2>新增帳號</h2>
     <form method="POST" action="/users/create" class="user-form">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -34,7 +35,7 @@
     </form>
 </div>
 
-<div class="section-card">
+<div class="bento-cell bento-cell--full">
     <h2>帳號清單</h2>
     <table class="user-table">
         <thead>
@@ -81,4 +82,5 @@
         </tbody>
     </table>
 </div>
+</div> <!-- /.bento-grid -->
 {% endblock %}
