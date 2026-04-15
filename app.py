@@ -1,11 +1,13 @@
 import os
-from datetime import date
+from datetime import date, timedelta
+from functools import wraps
 from io import BytesIO
 
 import pandas as pd
 import psycopg2
 from dotenv import load_dotenv
-from flask import Flask, redirect, render_template, request, send_file
+from flask import Flask, redirect, render_template, request, send_file, session
+from werkzeug.security import check_password_hash, generate_password_hash
 
 load_dotenv('.env.local')
 
@@ -14,36 +16,139 @@ app = Flask(__name__,
             template_folder=os.path.join(BASE_DIR, 'templates'),
             static_folder=os.path.join(BASE_DIR, 'static'))
 
+app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-change-me')
+app.permanent_session_lifetime = timedelta(days=7)
 
+
+# =====================
+# DB 連線
+# =====================
 def get_conn():
     url = os.environ.get('POSTGRES_URL') or os.environ.get('DATABASE_URL')
     return psycopg2.connect(url)
 
 
-# ---------------------
-# GET / — 清單頁
-# ---------------------
-@app.route('/')
-def index():
+# =====================
+# 認證工具
+# =====================
+def get_current_user():
+    user_id = session.get('user_id')
+    if not user_id:
+        return None
+    return {
+        'id': user_id,
+        'role': session.get('role'),
+        'display_name': session.get('display_name'),
+    }
+
+
+def login_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if not get_current_user():
+            return redirect('/login')
+        return f(*args, **kwargs)
+    return decorated
+
+
+def admin_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        user = get_current_user()
+        if not user:
+            return redirect('/login')
+        if user['role'] != 'admin':
+            return redirect('/')
+        return f(*args, **kwargs)
+    return decorated
+
+
+# =====================
+# 登入 / 登出
+# =====================
+@app.route('/login', methods=['GET'])
+def login_page():
+    if get_current_user():
+        return redirect('/')
+    return render_template('login.html')
+
+
+@app.route('/login', methods=['POST'])
+def login():
+    username = request.form.get('username', '').strip()
+    password = request.form.get('password', '')
+
     conn = get_conn()
     cur = conn.cursor()
     cur.execute("""
-        SELECT id, vendor, vendor_type, amount, category,
-               invoice_no, invoice_date, remit_date, project_no, stage, created_at
-        FROM reports
-        ORDER BY invoice_date DESC, created_at DESC
-    """)
+        SELECT id, display_name, password_hash, role, is_active
+        FROM users WHERE username = %s
+    """, (username,))
+    row = cur.fetchone()
+    cur.close()
+    conn.close()
+
+    if not row or not check_password_hash(row[2], password):
+        return render_template('login.html', error='帳號或密碼錯誤')
+
+    if not row[4]:
+        return render_template('login.html', error='此帳號已停用，請聯繫管理員')
+
+    session.permanent = True
+    session['user_id'] = row[0]
+    session['display_name'] = row[1]
+    session['role'] = row[3]
+    return redirect('/')
+
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect('/login')
+
+
+# =====================
+# GET / — 清單頁
+# =====================
+@app.route('/')
+@login_required
+def index():
+    user = get_current_user()
+    conn = get_conn()
+    cur = conn.cursor()
+
+    if user['role'] == 'admin':
+        cur.execute("""
+            SELECT r.id, r.vendor, r.vendor_type, r.amount, r.category,
+                   r.invoice_no, r.invoice_date, r.remit_date, r.project_no,
+                   r.stage, r.created_at, u.display_name
+            FROM reports r
+            JOIN users u ON r.user_id = u.id
+            ORDER BY r.invoice_date DESC, r.created_at DESC
+        """)
+    else:
+        cur.execute("""
+            SELECT r.id, r.vendor, r.vendor_type, r.amount, r.category,
+                   r.invoice_no, r.invoice_date, r.remit_date, r.project_no,
+                   r.stage, r.created_at, NULL as display_name
+            FROM reports r
+            WHERE r.user_id = %s
+            ORDER BY r.invoice_date DESC, r.created_at DESC
+        """, (user['id'],))
+
     rows = cur.fetchall()
     cur.close()
     conn.close()
-    return render_template('list.html', reports=rows)
+    return render_template('list.html', reports=rows, user=user)
 
 
-# ---------------------
+# =====================
 # GET /new — 新增表單頁
-# ---------------------
+# =====================
 @app.route('/new')
+@login_required
 def new_report():
+    user = get_current_user()
     conn = get_conn()
     cur = conn.cursor()
     cur.execute("SELECT DISTINCT vendor FROM reports ORDER BY vendor")
@@ -53,14 +158,16 @@ def new_report():
     cur.close()
     conn.close()
     return render_template('new.html', vendors=vendors, vendor_types=vendor_types,
-                           today=date.today().isoformat())
+                           today=date.today().isoformat(), user=user)
 
 
-# ---------------------
+# =====================
 # POST /submit — 寫入提報
-# ---------------------
+# =====================
 @app.route('/submit', methods=['POST'])
+@login_required
 def submit():
+    user = get_current_user()
     vendor = request.form.get('vendor', '').strip()
     vendor_type = request.form.get('vendor_type', '').strip()
     amount_str = request.form.get('amount', '').strip()
@@ -71,7 +178,6 @@ def submit():
     project_no = request.form.get('project_no', '').strip()
     stage = request.form.get('stage', '').strip() or None
 
-    # 伺服器端驗證
     errors = []
     if not vendor:
         errors.append('名稱為必填')
@@ -105,63 +211,96 @@ def submit():
         return render_template('new.html', error='、'.join(errors),
                                vendors=vendors, vendor_types=vendor_types,
                                today=date.today().isoformat(),
-                               form=request.form)
+                               form=request.form, user=user)
 
     conn = get_conn()
     cur = conn.cursor()
     cur.execute("""
         INSERT INTO reports (vendor, vendor_type, amount, category,
-                             invoice_no, invoice_date, remit_date, project_no, stage)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                             invoice_no, invoice_date, remit_date, project_no, stage, user_id)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     """, (vendor, vendor_type, amount_str, category,
-          invoice_no, invoice_date, remit_date, project_no, stage))
+          invoice_no, invoice_date, remit_date, project_no, stage, user['id']))
     conn.commit()
     cur.close()
     conn.close()
     return redirect('/')
 
 
-# ---------------------
+# =====================
 # POST /delete/<id> — 刪除提報
-# ---------------------
+# =====================
 @app.route('/delete/<int:report_id>', methods=['POST'])
+@login_required
 def delete(report_id):
+    user = get_current_user()
     conn = get_conn()
     cur = conn.cursor()
-    cur.execute("DELETE FROM reports WHERE id = %s", (report_id,))
+
+    if user['role'] == 'designer':
+        cur.execute("DELETE FROM reports WHERE id = %s AND user_id = %s",
+                    (report_id, user['id']))
+    else:
+        cur.execute("DELETE FROM reports WHERE id = %s", (report_id,))
+
     conn.commit()
     cur.close()
     conn.close()
     return redirect('/')
 
 
-# ---------------------
+# =====================
 # POST /update-remit-date/<id> — 修改匯款日期
-# ---------------------
+# =====================
 @app.route('/update-remit-date/<int:report_id>', methods=['POST'])
+@login_required
 def update_remit_date(report_id):
+    user = get_current_user()
     remit_date = request.form.get('remit_date', '').strip() or None
     conn = get_conn()
     cur = conn.cursor()
-    cur.execute("UPDATE reports SET remit_date = %s WHERE id = %s", (remit_date, report_id))
+
+    if user['role'] == 'designer':
+        cur.execute("UPDATE reports SET remit_date = %s WHERE id = %s AND user_id = %s",
+                    (remit_date, report_id, user['id']))
+    else:
+        cur.execute("UPDATE reports SET remit_date = %s WHERE id = %s",
+                    (remit_date, report_id))
+
     conn.commit()
     cur.close()
     conn.close()
     return redirect('/')
 
 
-# ---------------------
+# =====================
 # GET /export — 匯出 Excel
-# ---------------------
+# =====================
 @app.route('/export')
+@login_required
 def export():
+    user = get_current_user()
     conn = get_conn()
-    df = pd.read_sql("""
-        SELECT invoice_date, vendor_type, vendor, project_no, stage,
-               category, amount, invoice_no, remit_date
-        FROM reports
-        ORDER BY vendor_type, vendor, invoice_date
-    """, conn)
+    is_admin = user['role'] == 'admin'
+
+    if is_admin:
+        df = pd.read_sql("""
+            SELECT u.display_name as reporter, r.invoice_date, r.vendor_type,
+                   r.vendor, r.project_no, r.stage, r.category, r.amount,
+                   r.invoice_no, r.remit_date
+            FROM reports r
+            JOIN users u ON r.user_id = u.id
+            ORDER BY r.vendor_type, r.vendor, r.invoice_date
+        """, conn)
+    else:
+        df = pd.read_sql("""
+            SELECT invoice_date, vendor_type, vendor, project_no, stage,
+                   category, amount, invoice_no, remit_date
+            FROM reports
+            WHERE user_id = %s
+            ORDER BY vendor_type, vendor, invoice_date
+        """, conn, params=(user['id'],))
+
     conn.close()
 
     if df.empty:
@@ -169,8 +308,8 @@ def export():
 
     output = BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        write_detail_sheet(df, writer)
-        write_summary_sheet(df, writer)
+        write_detail_sheet(df, writer, is_admin=is_admin)
+        write_summary_sheet(df, writer, is_admin=is_admin)
     output.seek(0)
 
     today_str = date.today().strftime('%Y%m%d')
@@ -182,52 +321,60 @@ def export():
     )
 
 
-def write_detail_sheet(df, writer):
-    col_map = {
-        'invoice_date': '發票收據日期',
-        'vendor_type': '廠商類型',
-        'vendor': '名稱',
-        'project_no': '案場名稱',
-        'stage': '階段',
-        'category': '款項分類',
-        'amount': '請款金額',
-        'invoice_no': '發票收據編號',
-        'remit_date': '匯款日期',
-    }
+def write_detail_sheet(df, writer, is_admin=False):
+    if is_admin:
+        col_map = {
+            'reporter': '提報人',
+            'invoice_date': '發票收據日期',
+            'vendor_type': '廠商類型',
+            'vendor': '名稱',
+            'project_no': '案場名稱',
+            'stage': '階段',
+            'category': '款項分類',
+            'amount': '請款金額',
+            'invoice_no': '發票收據編號',
+            'remit_date': '匯款日期',
+        }
+    else:
+        col_map = {
+            'invoice_date': '發票收據日期',
+            'vendor_type': '廠商類型',
+            'vendor': '名稱',
+            'project_no': '案場名稱',
+            'stage': '階段',
+            'category': '款項分類',
+            'amount': '請款金額',
+            'invoice_no': '發票收據編號',
+            'remit_date': '匯款日期',
+        }
 
     rows = []
 
-    # 按廠商分組，插入小計列
     for vendor, group in df.groupby('vendor', sort=False):
         for _, row in group.iterrows():
             rows.append(row.to_dict())
-        rows.append({
-            'vendor': f'【{vendor} 小計】',
-            'amount': group['amount'].sum(),
-        })
+        subtotal = {'vendor': f'【{vendor} 小計】', 'amount': group['amount'].sum()}
+        rows.append(subtotal)
 
-    # 按款項分類分計
     for cat, group in df.groupby('category'):
         rows.append({
             'category': f'【{cat} 分計】',
             'amount': group['amount'].sum(),
         })
 
-    # 總計
     rows.append({
         'vendor': '【總計】',
         'amount': df['amount'].sum(),
     })
 
     result = pd.DataFrame(rows)
-    # 按 col_map 的 key 順序排列欄位
     ordered_cols = [c for c in col_map.keys() if c in result.columns]
     result = result[ordered_cols]
     result.rename(columns=col_map, inplace=True)
     result.to_excel(writer, sheet_name='明細', index=False)
 
 
-def write_summary_sheet(df, writer):
+def write_summary_sheet(df, writer, is_admin=False):
     today = date.today()
     current_year = today.year
     current_month = today.month
@@ -239,7 +386,6 @@ def write_summary_sheet(df, writer):
 
     categories = ['案場成本', '管銷', '獎金']
     summary_rows = []
-
     year_total = year_df['amount'].sum()
 
     for cat in categories:
@@ -262,6 +408,96 @@ def write_summary_sheet(df, writer):
 
     summary_df = pd.DataFrame(summary_rows)
     summary_df.to_excel(writer, sheet_name='總覽', index=False)
+
+    # 管理員版：按提報人彙總
+    if is_admin and 'reporter' in df.columns:
+        reporter_cats = df.groupby(['reporter', 'category'])['amount'].sum().unstack(fill_value=0)
+        for cat in categories:
+            if cat not in reporter_cats.columns:
+                reporter_cats[cat] = 0
+        reporter_cats = reporter_cats[categories]
+        reporter_cats['小計'] = reporter_cats.sum(axis=1)
+
+        startrow = len(summary_df) + 3
+        ws = writer.sheets['總覽']
+        ws.cell(row=startrow, column=1, value='按提報人彙總')
+        reporter_cats.to_excel(writer, sheet_name='總覽', startrow=startrow)
+
+
+# =====================
+# 帳號管理（admin 專用）
+# =====================
+@app.route('/users')
+@admin_required
+def user_list():
+    user = get_current_user()
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT id, username, display_name, role, is_active, created_at
+        FROM users ORDER BY role, display_name
+    """)
+    users = cur.fetchall()
+    cur.close()
+    conn.close()
+    return render_template('users.html', users=users, user=user)
+
+
+@app.route('/users/create', methods=['POST'])
+@admin_required
+def user_create():
+    username = request.form.get('username', '').strip()
+    display_name = request.form.get('display_name', '').strip()
+    password = request.form.get('password', '').strip()
+    role = request.form.get('role', 'designer')
+
+    if not username or not display_name or not password:
+        return redirect('/users')
+    if role not in ('designer', 'admin'):
+        role = 'designer'
+
+    pw_hash = generate_password_hash(password)
+    conn = get_conn()
+    cur = conn.cursor()
+    try:
+        cur.execute("""
+            INSERT INTO users (username, display_name, password_hash, role)
+            VALUES (%s, %s, %s, %s)
+        """, (username, display_name, pw_hash, role))
+        conn.commit()
+    except psycopg2.errors.UniqueViolation:
+        conn.rollback()
+    cur.close()
+    conn.close()
+    return redirect('/users')
+
+
+@app.route('/users/<int:uid>/toggle', methods=['POST'])
+@admin_required
+def user_toggle(uid):
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("UPDATE users SET is_active = NOT is_active WHERE id = %s", (uid,))
+    conn.commit()
+    cur.close()
+    conn.close()
+    return redirect('/users')
+
+
+@app.route('/users/<int:uid>/reset-password', methods=['POST'])
+@admin_required
+def user_reset_password(uid):
+    new_password = request.form.get('new_password', '').strip()
+    if not new_password:
+        return redirect('/users')
+    pw_hash = generate_password_hash(new_password)
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("UPDATE users SET password_hash = %s WHERE id = %s", (pw_hash, uid))
+    conn.commit()
+    cur.close()
+    conn.close()
+    return redirect('/users')
 
 
 if __name__ == '__main__':

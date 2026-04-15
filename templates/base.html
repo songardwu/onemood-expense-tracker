@@ -10,6 +10,18 @@
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
+    {% if user %}
+    <nav class="navbar">
+        <a href="/" class="nav-brand">出帳管理</a>
+        <div class="nav-right">
+            <span class="nav-user">{{ user.display_name }}</span>
+            {% if user.role == 'admin' %}
+            <a href="/users" class="nav-link">帳號管理</a>
+            {% endif %}
+            <a href="/logout" class="nav-link">登出</a>
+        </div>
+    </nav>
+    {% endif %}
     <div class="container">
         {% block content %}{% endblock %}
     </div>

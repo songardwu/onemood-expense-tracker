@@ -12,6 +12,7 @@
 <table class="desktop-table">
     <thead>
         <tr>
+            {% if user.role == 'admin' %}<th>提報人</th>{% endif %}
             <th>匯款日期</th>
             <th>名稱</th>
             <th>請款金額</th>
@@ -25,6 +26,7 @@
     <tbody>
         {% for r in reports %}
         <tr>
+            {% if user.role == 'admin' %}<td>{{ r[11] }}</td>{% endif %}
             <td>
                 <form method="POST" action="/update-remit-date/{{ r[0] }}" class="inline-date-form">
                     <input type="date" name="remit_date" value="{{ r[7] if r[7] else '' }}" class="inline-date-input">
@@ -58,6 +60,12 @@
             </form>
         </div>
         <div class="card-body">
+            {% if user.role == 'admin' %}
+            <div class="card-row">
+                <span class="card-label">提報人</span>
+                <span class="card-value">{{ r[11] }}</span>
+            </div>
+            {% endif %}
             <div class="card-row">
                 <span class="card-label">名稱</span>
                 <span class="card-value">{{ r[1] }}</span>
