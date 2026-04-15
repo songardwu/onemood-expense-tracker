@@ -100,6 +100,55 @@ h1 {
     color: #222;
 }
 
+/* ===== Inline 匯款日期編輯 ===== */
+.inline-date-form {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.inline-date-input {
+    padding: 4px 6px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    color: #333;
+    background: #fafafa;
+    width: 140px;
+}
+
+.inline-date-input:focus {
+    outline: none;
+    border-color: #4A90D9;
+    background: #fff;
+}
+
+.btn-save {
+    background: #4A90D9;
+    color: #fff;
+    border: none;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: opacity 0.2s;
+}
+
+.btn-save:active {
+    opacity: 0.8;
+}
+
+.card-row-remit {
+    padding-top: 8px;
+    border-top: 1px solid #f0f0f0;
+    margin-top: 4px;
+}
+
+.card-row-remit .inline-date-input {
+    flex: 1;
+}
+
 /* ===== 手機卡片 ===== */
 .mobile-cards {
     display: block;

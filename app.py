@@ -136,6 +136,21 @@ def delete(report_id):
 
 
 # ---------------------
+# POST /update-remit-date/<id> — 修改匯款日期
+# ---------------------
+@app.route('/update-remit-date/<int:report_id>', methods=['POST'])
+def update_remit_date(report_id):
+    remit_date = request.form.get('remit_date', '').strip() or None
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("UPDATE reports SET remit_date = %s WHERE id = %s", (remit_date, report_id))
+    conn.commit()
+    cur.close()
+    conn.close()
+    return redirect('/')
+
+
+# ---------------------
 # GET /export — 匯出 Excel
 # ---------------------
 @app.route('/export')

@@ -25,7 +25,12 @@
     <tbody>
         {% for r in reports %}
         <tr>
-            <td>{{ r[7] if r[7] else '-' }}</td>
+            <td>
+                <form method="POST" action="/update-remit-date/{{ r[0] }}" class="inline-date-form">
+                    <input type="date" name="remit_date" value="{{ r[7] if r[7] else '' }}" class="inline-date-input">
+                    <button type="submit" class="btn-save">儲存</button>
+                </form>
+            </td>
             <td>{{ r[1] }}</td>
             <td class="amount">{{ "{:,.0f}".format(r[3]) }}</td>
             <td><span class="badge badge-{{ r[4]|replace('案場成本','cost')|replace('管銷','admin')|replace('獎金','bonus') }}">{{ r[4] }}</span></td>
@@ -47,7 +52,7 @@
     {% for r in reports %}
     <div class="card">
         <div class="card-header">
-            <span class="card-date">{{ r[7] if r[7] else '匯款日期：-' }}</span>
+            <span class="card-date">{{ r[1] }}</span>
             <form method="POST" action="/delete/{{ r[0] }}" onsubmit="return confirm('確定要刪除這筆嗎？')">
                 <button type="submit" class="btn-delete">刪除</button>
             </form>
@@ -76,6 +81,13 @@
             <div class="card-row">
                 <span class="card-label">發票收據編號</span>
                 <span class="card-value">{{ r[5] if r[5] else '-' }}</span>
+            </div>
+            <div class="card-row card-row-remit">
+                <span class="card-label">匯款日期</span>
+                <form method="POST" action="/update-remit-date/{{ r[0] }}" class="inline-date-form">
+                    <input type="date" name="remit_date" value="{{ r[7] if r[7] else '' }}" class="inline-date-input">
+                    <button type="submit" class="btn-save">儲存</button>
+                </form>
             </div>
         </div>
     </div>
