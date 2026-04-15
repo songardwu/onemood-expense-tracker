@@ -97,6 +97,8 @@ app = Flask(__name__,
 
 app.secret_key = os.environ['SECRET_KEY']
 app.config['SESSION_COOKIE_SECURE'] = bool(os.environ.get('VERCEL'))
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.permanent_session_lifetime = timedelta(days=7)
 
 csrf = CSRFProtect(app)
