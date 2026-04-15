@@ -2,13 +2,40 @@
 {% block content %}
 <h1>出帳管理</h1>
 
+{% if request.args.get('error') == 'invoice_dup' %}
+<div class="error-banner">發票號碼重複，請確認是否重複請款。</div>
+{% endif %}
+
 <div class="actions">
     <a href="/new" class="btn btn-primary">+ 新增提報</a>
     <a href="/export" class="btn btn-secondary">匯出 Excel</a>
 </div>
 
+{% if user.role == 'admin' and projects %}
+<details class="project-lock-panel">
+    <summary>案場管理（鎖定 / 解鎖）</summary>
+    <div class="project-list">
+        {% for p in projects %}
+        <div class="project-item">
+            <span>{{ p.project_no }}（{{ p.cnt }} 筆）</span>
+            <form method="POST" action="/toggle-lock-project" class="inline-form">
+                <input type="hidden" name="project_no" value="{{ p.project_no }}">
+                {% if p.any_locked %}
+                    <input type="hidden" name="action" value="unlock">
+                    <button type="submit" class="btn-small btn-success">解鎖</button>
+                {% else %}
+                    <input type="hidden" name="action" value="lock">
+                    <button type="submit" class="btn-small btn-danger">鎖定</button>
+                {% endif %}
+            </form>
+        </div>
+        {% endfor %}
+    </div>
+</details>
+{% endif %}
+
 {% if reports %}
-<!-- 桌面版表格 -->
+<!-- ===== 桌面版表格 ===== -->
 <table class="desktop-table">
     <thead>
         <tr>
@@ -20,44 +47,99 @@
             <th>案場名稱</th>
             <th>發票收據日期</th>
             <th>發票收據編號</th>
+            {% if user.role == 'admin' %}<th>最後修改</th>{% endif %}
             <th></th>
         </tr>
     </thead>
     <tbody>
         {% for r in reports %}
-        <tr>
-            {% if user.role == 'admin' %}<td>{{ r[11] }}</td>{% endif %}
-            <td>
-                <form method="POST" action="/update-remit-date/{{ r[0] }}" class="inline-date-form">
-                    <input type="date" name="remit_date" value="{{ r[7] if r[7] else '' }}" class="inline-date-input">
-                    <button type="submit" class="btn-save">儲存</button>
-                </form>
-            </td>
-            <td>{{ r[1] }}</td>
-            <td class="amount">{{ "{:,.0f}".format(r[3]) }}</td>
-            <td><span class="badge badge-{{ r[4]|replace('案場成本','cost')|replace('管銷','admin')|replace('獎金','bonus') }}">{{ r[4] }}</span></td>
-            <td>{{ r[8] }}</td>
-            <td>{{ r[6] }}</td>
-            <td>{{ r[5] if r[5] else '-' }}</td>
-            <td>
-                <form method="POST" action="/delete/{{ r[0] }}" onsubmit="return confirm('確定要刪除這筆嗎？')">
-                    <button type="submit" class="btn-delete">刪除</button>
-                </form>
-            </td>
+        <tr class="{{ 'row-locked' if r[12] else '' }}">
+            {# --- 管理員 inline 編輯版 --- #}
+            {% if user.role == 'admin' %}
+                <td>{{ r[11] }}</td>
+                {% if r[12] %}
+                    {# 鎖定列：純文字 #}
+                    <td>🔒 {{ r[7] if r[7] else '-' }}</td>
+                    <td>{{ r[1] }}</td>
+                    <td class="amount">{{ "{:,.0f}".format(r[3]) }}</td>
+                    <td><span class="badge badge-{{ r[4]|replace('案場成本','cost')|replace('管銷','admin')|replace('獎金','bonus') }}">{{ r[4] }}</span></td>
+                    <td>{{ r[8] }}</td>
+                    <td>{{ r[6] }}</td>
+                    <td>{{ r[5] if r[5] else '-' }}</td>
+                    <td class="text-muted">
+                        {% if r[15] %}{{ r[15] }} · {{ r[14].strftime('%m/%d %H:%M') }}{% else %}—{% endif %}
+                    </td>
+                    <td></td>
+                {% else %}
+                    {# 未鎖定：inline 編輯 #}
+                    <td><input form="edit-{{ r[0] }}" type="date" name="remit_date" value="{{ r[7] if r[7] else '' }}" class="inline-edit-input"></td>
+                    <td><input form="edit-{{ r[0] }}" type="text" name="vendor" value="{{ r[1] }}" class="inline-edit-input" required></td>
+                    <td><input form="edit-{{ r[0] }}" type="number" name="amount" value="{{ r[3] }}" class="inline-edit-input" step="1" required></td>
+                    <td>
+                        <select form="edit-{{ r[0] }}" name="category" class="inline-edit-select">
+                            <option value="案場成本" {{ 'selected' if r[4] == '案場成本' }}>案場成本</option>
+                            <option value="管銷" {{ 'selected' if r[4] == '管銷' }}>管銷</option>
+                            <option value="獎金" {{ 'selected' if r[4] == '獎金' }}>獎金</option>
+                        </select>
+                    </td>
+                    <td><input form="edit-{{ r[0] }}" type="text" name="project_no" value="{{ r[8] }}" class="inline-edit-input" required></td>
+                    <td><input form="edit-{{ r[0] }}" type="date" name="invoice_date" value="{{ r[6] if r[6] else '' }}" class="inline-edit-input" required></td>
+                    <td><input form="edit-{{ r[0] }}" type="text" name="invoice_no" value="{{ r[5] if r[5] else '' }}" class="inline-edit-input"></td>
+                    <td class="text-muted">
+                        {% if r[15] %}{{ r[15] }} · {{ r[14].strftime('%m/%d %H:%M') }}{% else %}—{% endif %}
+                    </td>
+                    <td class="actions-cell">
+                        <form id="edit-{{ r[0] }}" method="POST" action="/update-report/{{ r[0] }}">
+                            <button type="submit" class="btn-save">儲存</button>
+                        </form>
+                        <form method="POST" action="/delete/{{ r[0] }}" onsubmit="return confirm('確定要刪除這筆嗎？')">
+                            <button type="submit" class="btn-delete">刪除</button>
+                        </form>
+                    </td>
+                {% endif %}
+
+            {# --- 設計師版：純文字 --- #}
+            {% else %}
+                <td>
+                    {% if r[12] %}🔒 {% endif %}
+                    <form method="POST" action="/update-remit-date/{{ r[0] }}" class="inline-date-form">
+                        <input type="date" name="remit_date" value="{{ r[7] if r[7] else '' }}" class="inline-date-input">
+                        <button type="submit" class="btn-save">儲存</button>
+                    </form>
+                </td>
+                <td>{{ r[1] }}</td>
+                <td class="amount">{{ "{:,.0f}".format(r[3]) }}</td>
+                <td><span class="badge badge-{{ r[4]|replace('案場成本','cost')|replace('管銷','admin')|replace('獎金','bonus') }}">{{ r[4] }}</span></td>
+                <td>{{ r[8] }}</td>
+                <td>{{ r[6] }}</td>
+                <td>{{ r[5] if r[5] else '-' }}</td>
+                <td>
+                    {% if not r[12] %}
+                    <form method="POST" action="/delete/{{ r[0] }}" onsubmit="return confirm('確定要刪除這筆嗎？')">
+                        <button type="submit" class="btn-delete">刪除</button>
+                    </form>
+                    {% endif %}
+                </td>
+            {% endif %}
         </tr>
         {% endfor %}
     </tbody>
 </table>
 
-<!-- 手機版卡片 -->
+<!-- ===== 手機版卡片 ===== -->
 <div class="mobile-cards">
     {% for r in reports %}
-    <div class="card">
+    <div class="card {{ 'row-locked' if r[12] else '' }}">
         <div class="card-header">
-            <span class="card-date">{{ r[1] }}</span>
-            <form method="POST" action="/delete/{{ r[0] }}" onsubmit="return confirm('確定要刪除這筆嗎？')">
-                <button type="submit" class="btn-delete">刪除</button>
-            </form>
+            <span class="card-date">{% if r[12] %}🔒 {% endif %}{{ r[1] }}</span>
+            {# 管理員未鎖定 或 設計師未鎖定 才顯示刪除 #}
+            {% if not r[12] %}
+                {% if user.role == 'admin' or user.role == 'designer' %}
+                <form method="POST" action="/delete/{{ r[0] }}" onsubmit="return confirm('確定要刪除這筆嗎？')">
+                    <button type="submit" class="btn-delete">刪除</button>
+                </form>
+                {% endif %}
+            {% endif %}
         </div>
         <div class="card-body">
             {% if user.role == 'admin' %}
@@ -66,37 +148,80 @@
                 <span class="card-value">{{ r[11] }}</span>
             </div>
             {% endif %}
-            <div class="card-row">
-                <span class="card-label">名稱</span>
-                <span class="card-value">{{ r[1] }}</span>
+
+            {# --- 管理員 inline 編輯（手機版） --- #}
+            {% if user.role == 'admin' and not r[12] %}
+                <div class="card-row">
+                    <span class="card-label">名稱</span>
+                    <input form="medit-{{ r[0] }}" type="text" name="vendor" value="{{ r[1] }}" class="inline-edit-input" required>
+                </div>
+                <div class="card-row">
+                    <span class="card-label">請款金額</span>
+                    <input form="medit-{{ r[0] }}" type="number" name="amount" value="{{ r[3] }}" class="inline-edit-input" step="1" required>
+                </div>
+                <div class="card-row">
+                    <span class="card-label">款項分類</span>
+                    <select form="medit-{{ r[0] }}" name="category" class="inline-edit-select">
+                        <option value="案場成本" {{ 'selected' if r[4] == '案場成本' }}>案場成本</option>
+                        <option value="管銷" {{ 'selected' if r[4] == '管銷' }}>管銷</option>
+                        <option value="獎金" {{ 'selected' if r[4] == '獎金' }}>獎金</option>
+                    </select>
+                </div>
+                <div class="card-row">
+                    <span class="card-label">案場名稱</span>
+                    <input form="medit-{{ r[0] }}" type="text" name="project_no" value="{{ r[8] }}" class="inline-edit-input" required>
+                </div>
+                <div class="card-row">
+                    <span class="card-label">發票收據日期</span>
+                    <input form="medit-{{ r[0] }}" type="date" name="invoice_date" value="{{ r[6] if r[6] else '' }}" class="inline-edit-input" required>
+                </div>
+                <div class="card-row">
+                    <span class="card-label">發票收據編號</span>
+                    <input form="medit-{{ r[0] }}" type="text" name="invoice_no" value="{{ r[5] if r[5] else '' }}" class="inline-edit-input">
+                </div>
+                <div class="card-row card-row-remit">
+                    <span class="card-label">匯款日期</span>
+                    <input form="medit-{{ r[0] }}" type="date" name="remit_date" value="{{ r[7] if r[7] else '' }}" class="inline-edit-input">
+                </div>
+                <div class="card-row">
+                    <form id="medit-{{ r[0] }}" method="POST" action="/update-report/{{ r[0] }}">
+                        <button type="submit" class="btn-save" style="width:100%;">儲存</button>
+                    </form>
+                </div>
+
+            {# --- 管理員鎖定列（手機版）--- #}
+            {% elif user.role == 'admin' and r[12] %}
+                <div class="card-row"><span class="card-label">名稱</span><span class="card-value">{{ r[1] }}</span></div>
+                <div class="card-row"><span class="card-label">請款金額</span><span class="card-value amount">{{ "{:,.0f}".format(r[3]) }}</span></div>
+                <div class="card-row"><span class="card-label">款項分類</span><span class="card-value"><span class="badge badge-{{ r[4]|replace('案場成本','cost')|replace('管銷','admin')|replace('獎金','bonus') }}">{{ r[4] }}</span></span></div>
+                <div class="card-row"><span class="card-label">案場名稱</span><span class="card-value">{{ r[8] }}</span></div>
+                <div class="card-row"><span class="card-label">發票收據日期</span><span class="card-value">{{ r[6] }}</span></div>
+                <div class="card-row"><span class="card-label">發票收據編號</span><span class="card-value">{{ r[5] if r[5] else '-' }}</span></div>
+                <div class="card-row card-row-remit"><span class="card-label">匯款日期</span><span class="card-value">{{ r[7] if r[7] else '-' }}</span></div>
+
+            {# --- 設計師版（手機版）--- #}
+            {% else %}
+                <div class="card-row"><span class="card-label">名稱</span><span class="card-value">{{ r[1] }}</span></div>
+                <div class="card-row"><span class="card-label">請款金額</span><span class="card-value amount">{{ "{:,.0f}".format(r[3]) }}</span></div>
+                <div class="card-row"><span class="card-label">款項分類</span><span class="card-value"><span class="badge badge-{{ r[4]|replace('案場成本','cost')|replace('管銷','admin')|replace('獎金','bonus') }}">{{ r[4] }}</span></span></div>
+                <div class="card-row"><span class="card-label">案場名稱</span><span class="card-value">{{ r[8] }}</span></div>
+                <div class="card-row"><span class="card-label">發票收據日期</span><span class="card-value">{{ r[6] }}</span></div>
+                <div class="card-row"><span class="card-label">發票收據編號</span><span class="card-value">{{ r[5] if r[5] else '-' }}</span></div>
+                <div class="card-row card-row-remit">
+                    <span class="card-label">匯款日期</span>
+                    <form method="POST" action="/update-remit-date/{{ r[0] }}" class="inline-date-form">
+                        <input type="date" name="remit_date" value="{{ r[7] if r[7] else '' }}" class="inline-date-input">
+                        <button type="submit" class="btn-save">儲存</button>
+                    </form>
+                </div>
+            {% endif %}
+
+            {# 審計軌跡 #}
+            {% if r[15] %}
+            <div class="card-footer text-muted">
+                最後修改：{{ r[15] }} · {{ r[14].strftime('%m/%d %H:%M') }}
             </div>
-            <div class="card-row">
-                <span class="card-label">請款金額</span>
-                <span class="card-value amount">{{ "{:,.0f}".format(r[3]) }}</span>
-            </div>
-            <div class="card-row">
-                <span class="card-label">款項分類</span>
-                <span class="card-value"><span class="badge badge-{{ r[4]|replace('案場成本','cost')|replace('管銷','admin')|replace('獎金','bonus') }}">{{ r[4] }}</span></span>
-            </div>
-            <div class="card-row">
-                <span class="card-label">案場名稱</span>
-                <span class="card-value">{{ r[8] }}</span>
-            </div>
-            <div class="card-row">
-                <span class="card-label">發票收據日期</span>
-                <span class="card-value">{{ r[6] }}</span>
-            </div>
-            <div class="card-row">
-                <span class="card-label">發票收據編號</span>
-                <span class="card-value">{{ r[5] if r[5] else '-' }}</span>
-            </div>
-            <div class="card-row card-row-remit">
-                <span class="card-label">匯款日期</span>
-                <form method="POST" action="/update-remit-date/{{ r[0] }}" class="inline-date-form">
-                    <input type="date" name="remit_date" value="{{ r[7] if r[7] else '' }}" class="inline-date-input">
-                    <button type="submit" class="btn-save">儲存</button>
-                </form>
-            </div>
+            {% endif %}
         </div>
     </div>
     {% endfor %}

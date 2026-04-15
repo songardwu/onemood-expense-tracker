@@ -6,7 +6,7 @@ from io import BytesIO
 import pandas as pd
 import psycopg2
 from dotenv import load_dotenv
-from flask import Flask, abort, redirect, render_template, request, send_file, session
+from flask import Flask, abort, jsonify, redirect, render_template, request, send_file, session
 from werkzeug.security import check_password_hash, generate_password_hash
 
 load_dotenv('.env.local')
@@ -121,25 +121,43 @@ def index():
         cur.execute("""
             SELECT r.id, r.vendor, r.vendor_type, r.amount, r.category,
                    r.invoice_no, r.invoice_date, r.remit_date, r.project_no,
-                   r.stage, r.created_at, u.display_name
+                   r.stage, r.created_at, u.display_name,
+                   r.is_locked, r.updated_by, r.updated_at,
+                   u2.display_name as updater_name
             FROM reports r
             JOIN users u ON r.user_id = u.id
+            LEFT JOIN users u2 ON r.updated_by = u2.id
             ORDER BY r.invoice_date DESC, r.created_at DESC
         """)
     else:
         cur.execute("""
             SELECT r.id, r.vendor, r.vendor_type, r.amount, r.category,
                    r.invoice_no, r.invoice_date, r.remit_date, r.project_no,
-                   r.stage, r.created_at, NULL as display_name
+                   r.stage, r.created_at, NULL as display_name,
+                   r.is_locked, NULL as updated_by, NULL as updated_at,
+                   NULL as updater_name
             FROM reports r
             WHERE r.user_id = %s
             ORDER BY r.invoice_date DESC, r.created_at DESC
         """, (user['id'],))
 
     rows = cur.fetchall()
+
+    # 案場鎖定狀態（管理員用）
+    projects = []
+    if user['role'] == 'admin':
+        cur.execute("""
+            SELECT project_no, bool_or(is_locked) as any_locked, COUNT(*) as cnt
+            FROM reports
+            GROUP BY project_no
+            ORDER BY project_no
+        """)
+        projects = [{'project_no': r[0], 'any_locked': r[1], 'cnt': r[2]}
+                    for r in cur.fetchall()]
+
     cur.close()
     conn.close()
-    return render_template('list.html', reports=rows, user=user)
+    return render_template('list.html', reports=rows, user=user, projects=projects)
 
 
 # =====================
@@ -199,6 +217,16 @@ def submit():
     if not project_no:
         errors.append('案場名稱為必填')
 
+    # 發票號碼重複防呆
+    if not errors and invoice_no:
+        conn_chk = get_conn()
+        cur_chk = conn_chk.cursor()
+        cur_chk.execute("SELECT id FROM reports WHERE invoice_no = %s", (invoice_no,))
+        if cur_chk.fetchone():
+            errors.append('此發票號碼已存在，請確認是否重複請款')
+        cur_chk.close()
+        conn_chk.close()
+
     if errors:
         conn = get_conn()
         cur = conn.cursor()
@@ -237,17 +265,19 @@ def delete(report_id):
     conn = get_conn()
     cur = conn.cursor()
 
-    if user['role'] == 'designer':
-        cur.execute("SELECT user_id FROM reports WHERE id = %s", (report_id,))
-        row = cur.fetchone()
-        if not row or row[0] != user['id']:
-            cur.close()
-            conn.close()
-            abort(403)
-        cur.execute("DELETE FROM reports WHERE id = %s", (report_id,))
-    else:
-        cur.execute("DELETE FROM reports WHERE id = %s", (report_id,))
+    cur.execute("SELECT user_id, is_locked FROM reports WHERE id = %s", (report_id,))
+    row = cur.fetchone()
+    if not row:
+        cur.close(); conn.close()
+        abort(404)
+    if row[1]:  # is_locked
+        cur.close(); conn.close()
+        abort(403)
+    if user['role'] == 'designer' and row[0] != user['id']:
+        cur.close(); conn.close()
+        abort(403)
 
+    cur.execute("DELETE FROM reports WHERE id = %s", (report_id,))
     conn.commit()
     cur.close()
     conn.close()
@@ -282,6 +312,123 @@ def update_remit_date(report_id):
     cur.close()
     conn.close()
     return redirect('/')
+
+
+# =====================
+# POST /update-report/<id> — 管理員全欄位更新
+# =====================
+@app.route('/update-report/<int:report_id>', methods=['POST'])
+@admin_required
+def update_report(report_id):
+    user = get_current_user()
+    conn = get_conn()
+    cur = conn.cursor()
+
+    # 檢查存在 + 鎖定
+    cur.execute("SELECT is_locked FROM reports WHERE id = %s", (report_id,))
+    row = cur.fetchone()
+    if not row:
+        cur.close(); conn.close()
+        abort(404)
+    if row[0]:
+        cur.close(); conn.close()
+        abort(403)
+
+    vendor = request.form.get('vendor', '').strip()
+    category = request.form.get('category', '').strip()
+    amount = request.form.get('amount', '').strip()
+    invoice_no = request.form.get('invoice_no', '').strip() or None
+    invoice_date = request.form.get('invoice_date', '').strip()
+    remit_date = request.form.get('remit_date', '').strip() or None
+    project_no = request.form.get('project_no', '').strip()
+
+    # 發票防呆（排除自己）
+    if invoice_no:
+        cur.execute(
+            "SELECT id FROM reports WHERE invoice_no = %s AND id != %s",
+            (invoice_no, report_id))
+        if cur.fetchone():
+            cur.close(); conn.close()
+            return redirect('/?error=invoice_dup')
+
+    cur.execute("""
+        UPDATE reports
+        SET vendor = %s, category = %s, amount = %s,
+            invoice_no = %s, invoice_date = %s, remit_date = %s,
+            project_no = %s, updated_by = %s, updated_at = NOW()
+        WHERE id = %s
+    """, (vendor, category, amount, invoice_no, invoice_date,
+          remit_date, project_no, user['id'], report_id))
+    conn.commit()
+    cur.close()
+    conn.close()
+    return redirect('/')
+
+
+# =====================
+# POST /toggle-lock-project — 案場鎖定切換
+# =====================
+@app.route('/toggle-lock-project', methods=['POST'])
+@admin_required
+def toggle_lock_project():
+    project_no = request.form.get('project_no', '').strip()
+    action = request.form.get('action', '').strip()
+
+    if not project_no or action not in ('lock', 'unlock'):
+        return redirect('/')
+
+    lock_value = action == 'lock'
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("UPDATE reports SET is_locked = %s WHERE project_no = %s",
+                (lock_value, project_no))
+    conn.commit()
+    cur.close()
+    conn.close()
+    return redirect('/')
+
+
+# =====================
+# GET /api/check-vendor — 廠商相似比對
+# =====================
+@app.route('/api/check-vendor')
+@login_required
+def check_vendor():
+    q = request.args.get('q', '').strip()
+    if len(q) < 2:
+        return jsonify({'similar': []})
+
+    conn = get_conn()
+    cur = conn.cursor()
+
+    cur.execute("SELECT keyword FROM vendor_keywords")
+    keywords = [row[0] for row in cur.fetchall()]
+
+    # 核心名稱：移除關鍵字
+    core = q
+    for kw in keywords:
+        core = core.replace(kw, '')
+    core = core.strip()
+
+    if not core:
+        cur.close(); conn.close()
+        return jsonify({'similar': []})
+
+    cur.execute("SELECT DISTINCT vendor FROM reports WHERE vendor != %s", (q,))
+    vendors = [row[0] for row in cur.fetchall()]
+    cur.close()
+    conn.close()
+
+    similar = []
+    for v in vendors:
+        v_core = v
+        for kw in keywords:
+            v_core = v_core.replace(kw, '')
+        v_core = v_core.strip()
+        if v_core and (v_core == core or core in v_core or v_core in core):
+            similar.append(v)
+
+    return jsonify({'similar': similar})
 
 
 # =====================
