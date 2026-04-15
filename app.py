@@ -7,6 +7,7 @@ import pandas as pd
 import psycopg2
 from dotenv import load_dotenv
 from flask import Flask, abort, jsonify, redirect, render_template, request, send_file, session
+from flask_wtf.csrf import CSRFProtect
 from werkzeug.security import check_password_hash, generate_password_hash
 
 load_dotenv('.env.local')
@@ -98,6 +99,8 @@ app.secret_key = os.environ['SECRET_KEY']
 app.config['SESSION_COOKIE_SECURE'] = bool(os.environ.get('VERCEL'))
 app.permanent_session_lifetime = timedelta(days=7)
 
+csrf = CSRFProtect(app)
+
 
 # =====================
 # DB 連線
@@ -145,6 +148,13 @@ def admin_required(f):
 # =====================
 # 安全 HTTP headers
 # =====================
+@app.errorhandler(400)
+def handle_csrf_error(e):
+    if 'CSRF' in str(e):
+        return render_template('login.html', error='操作逾時，請重新操作。'), 400
+    return e
+
+
 @app.after_request
 def set_security_headers(response):
     response.headers['X-Content-Type-Options'] = 'nosniff'

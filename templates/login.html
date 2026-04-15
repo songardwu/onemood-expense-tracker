@@ -16,6 +16,7 @@
         <div class="error-msg">{{ error }}</div>
         {% endif %}
         <form method="POST" action="/login">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="form-group">
                 <label for="username">帳號</label>
                 <input type="text" id="username" name="username" required autofocus autocomplete="username">

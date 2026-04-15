@@ -25,6 +25,7 @@
 <div class="actions">
     <a href="/vendors/template" class="btn btn-secondary">下載範本</a>
     <form method="POST" action="/vendors/import" enctype="multipart/form-data" class="inline-form import-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <input type="file" name="file" accept=".xlsx,.csv" required>
         <button type="submit" class="btn btn-secondary">匯入</button>
     </form>
@@ -33,6 +34,7 @@
 <details class="vendor-add-panel" open>
     <summary>新增廠商</summary>
     <form method="POST" action="/vendors/create" class="vendor-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="vendor-form-row">
             <input type="text" name="name" placeholder="名稱 *" required>
             <input type="text" name="bank_name" placeholder="銀行分行 *" required>
@@ -68,9 +70,11 @@
                 <td><input form="vedit-{{ v[0] }}" type="text" name="account_name" value="{{ v[5] }}" class="inline-edit-input" required></td>
                 <td class="actions-cell">
                     <form id="vedit-{{ v[0] }}" method="POST" action="/vendors/update/{{ v[0] }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <button type="submit" class="btn-save">儲存</button>
                     </form>
                     <form method="POST" action="/vendors/delete/{{ v[0] }}" onsubmit="return confirm('確定要刪除此廠商嗎？')">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <button type="submit" class="btn-delete">刪除</button>
                     </form>
                 </td>
@@ -94,6 +98,7 @@
             <span class="card-date">{{ v[1] }}</span>
             {% if user.role == 'admin' %}
             <form method="POST" action="/vendors/delete/{{ v[0] }}" onsubmit="return confirm('確定要刪除此廠商嗎？')">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="btn-delete">刪除</button>
             </form>
             {% endif %}
@@ -122,6 +127,7 @@
                 </div>
                 <div class="card-row">
                     <form id="mvedit-{{ v[0] }}" method="POST" action="/vendors/update/{{ v[0] }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <button type="submit" class="btn-save" style="width:100%;">儲存</button>
                     </form>
                 </div>

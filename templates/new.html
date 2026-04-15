@@ -8,6 +8,7 @@
 {% endif %}
 
 <form method="POST" action="/submit" class="report-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div class="form-group">
         <label for="vendor">請款名稱 <span class="required">*</span></label>
         <input list="vendor-list" id="vendor" name="vendor" required

@@ -6,6 +6,7 @@
 <div class="section-card">
     <h2>新增帳號</h2>
     <form method="POST" action="/users/create" class="user-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="form-row">
             <div class="form-group">
                 <label for="username">帳號（英文）</label>
@@ -61,11 +62,13 @@
                 <td class="actions-cell">
                     {% if u[0] != user.id %}
                     <form method="POST" action="/users/{{ u[0] }}/toggle" class="inline-form">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <button type="submit" class="btn-small {{ 'btn-danger' if u[4] else 'btn-success' }}">
                             {{ '停用' if u[4] else '啟用' }}
                         </button>
                     </form>
                     <form method="POST" action="/users/{{ u[0] }}/reset-password" class="inline-form">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <input type="password" name="new_password" placeholder="新密碼" class="small-input" required>
                         <button type="submit" class="btn-small btn-outline">重設</button>
                     </form>

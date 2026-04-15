@@ -19,6 +19,7 @@
         <div class="project-item">
             <span>{{ p.project_no }}（{{ p.cnt }} 筆）</span>
             <form method="POST" action="/toggle-lock-project" class="inline-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="hidden" name="project_no" value="{{ p.project_no }}">
                 {% if p.any_locked %}
                     <input type="hidden" name="action" value="unlock">
@@ -97,9 +98,11 @@
                     </td>
                     <td class="actions-cell">
                         <form id="edit-{{ r[0] }}" method="POST" action="/update-report/{{ r[0] }}">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <button type="submit" class="btn-save">儲存</button>
                         </form>
                         <form method="POST" action="/delete/{{ r[0] }}" onsubmit="return confirm('確定要刪除這筆嗎？')">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <button type="submit" class="btn-delete">刪除</button>
                         </form>
                     </td>
@@ -117,6 +120,7 @@
                     {{ r[7] if r[7] else '-' }}
                     {% else %}
                     <form method="POST" action="/update-remit-date/{{ r[0] }}" class="inline-date-form">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <input type="date" name="remit_date" value="{{ r[7] if r[7] else '' }}" class="inline-date-input">
                         <button type="submit" class="btn-save">儲存</button>
                     </form>
@@ -126,6 +130,7 @@
                 <td>
                     {% if not r[12] %}
                     <form method="POST" action="/delete/{{ r[0] }}" onsubmit="return confirm('確定要刪除這筆嗎？')">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <button type="submit" class="btn-delete">刪除</button>
                     </form>
                     {% endif %}
@@ -144,6 +149,7 @@
             <span class="card-date">{{ r[1] }}</span>
             {% if not r[12] %}
             <form method="POST" action="/delete/{{ r[0] }}" onsubmit="return confirm('確定要刪除這筆嗎？')">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="btn-delete">刪除</button>
             </form>
             {% endif %}
@@ -200,6 +206,7 @@
                 </div>
                 <div class="card-row">
                     <form id="medit-{{ r[0] }}" method="POST" action="/update-report/{{ r[0] }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <button type="submit" class="btn-save" style="width:100%;">儲存變更</button>
                     </form>
                 </div>
@@ -225,6 +232,7 @@
                     <span class="card-value">{{ r[7] if r[7] else '-' }}</span>
                     {% else %}
                     <form method="POST" action="/update-remit-date/{{ r[0] }}" class="inline-date-form">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <input type="date" name="remit_date" value="{{ r[7] if r[7] else '' }}" class="inline-date-input">
                         <button type="submit" class="btn-save">儲存</button>
                     </form>
