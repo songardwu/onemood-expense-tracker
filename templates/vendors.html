@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
-<h1>廠商匯款資料</h1>
-<a href="/" class="back-link">&larr; 回清單</a>
+<a href="/" class="back-link">&larr; 返回</a>
+<h1>廠商資料</h1>
 
 {% if error %}
 <div class="error-banner">{{ error }}</div>
@@ -11,7 +11,7 @@
 <div class="import-result">
     匯入完成：新增 {{ import_result.added }} 筆
     {% if import_result.updated %}、更新 {{ import_result.updated }} 筆{% endif %}
-    {% if import_result.skipped %}、跳過 {{ import_result.skipped }} 筆（已存在）{% endif %}
+    {% if import_result.skipped %}、跳過 {{ import_result.skipped }} 筆{% endif %}
     {% if import_result.errors %}
     <ul class="import-errors">
         {% for e in import_result.errors %}
@@ -30,14 +30,13 @@
     </form>
 </div>
 
-{# === 新增廠商表單 === #}
 <details class="vendor-add-panel" open>
     <summary>新增廠商</summary>
     <form method="POST" action="/vendors/create" class="vendor-form">
         <div class="vendor-form-row">
             <input type="text" name="name" placeholder="名稱 *" required>
-            <input type="text" name="bank_name" placeholder="銀行分行名稱 *" required>
-            <input type="text" name="bank_code" placeholder="銀行代碼 *" required>
+            <input type="text" name="bank_name" placeholder="銀行分行 *" required>
+            <input type="text" name="bank_code" placeholder="代碼 *" required>
             <input type="text" name="account_no" placeholder="帳號 *" required>
             <input type="text" name="account_name" placeholder="戶名 *" required>
             <button type="submit" class="btn btn-primary">新增</button>
@@ -46,13 +45,13 @@
 </details>
 
 {% if vendors %}
-<!-- ===== 桌面版表格 ===== -->
+<!-- ===== Desktop ===== -->
 <table class="desktop-table vendor-table">
     <thead>
         <tr>
             <th>名稱</th>
-            <th>銀行分行名稱</th>
-            <th>銀行代碼</th>
+            <th>銀行分行</th>
+            <th>代碼</th>
             <th>帳號</th>
             <th>戶名</th>
             {% if user.role == 'admin' %}<th></th>{% endif %}
@@ -87,7 +86,7 @@
     </tbody>
 </table>
 
-<!-- ===== 手機版卡片 ===== -->
+<!-- ===== Mobile ===== -->
 <div class="mobile-cards">
     {% for v in vendors %}
     <div class="card">
@@ -110,7 +109,7 @@
                     <input form="mvedit-{{ v[0] }}" type="text" name="bank_name" value="{{ v[2] }}" class="inline-edit-input" required>
                 </div>
                 <div class="card-row">
-                    <span class="card-label">銀行代碼</span>
+                    <span class="card-label">代碼</span>
                     <input form="mvedit-{{ v[0] }}" type="text" name="bank_code" value="{{ v[3] }}" class="inline-edit-input" required>
                 </div>
                 <div class="card-row">
@@ -128,7 +127,7 @@
                 </div>
             {% else %}
                 <div class="card-row"><span class="card-label">銀行分行</span><span class="card-value">{{ v[2] }}</span></div>
-                <div class="card-row"><span class="card-label">銀行代碼</span><span class="card-value">{{ v[3] }}</span></div>
+                <div class="card-row"><span class="card-label">代碼</span><span class="card-value">{{ v[3] }}</span></div>
                 <div class="card-row"><span class="card-label">帳號</span><span class="card-value">{{ v[4] }}</span></div>
                 <div class="card-row"><span class="card-label">戶名</span><span class="card-value">{{ v[5] }}</span></div>
             {% endif %}
@@ -140,7 +139,7 @@
 {% else %}
 <div class="empty-state">
     <p>目前沒有廠商資料</p>
-    <p>點擊上方「新增廠商」或使用「匯入」批次新增</p>
+    <p>使用「新增廠商」或「匯入」批次新增</p>
 </div>
 {% endif %}
 {% endblock %}

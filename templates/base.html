@@ -2,17 +2,18 @@
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <meta name="theme-color" content="#4A90D9">
+    <meta name="theme-color" content="#f5f5f7" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
     <title>出帳管理</title>
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
     {% if user %}
     <nav class="navbar">
-        <a href="/" class="nav-brand">出帳管理</a>
+        <a href="/" class="nav-brand">Dawn</a>
         <div class="nav-right">
             <span class="nav-user">{{ user.display_name }}</span>
             <a href="/vendors" class="nav-link">廠商資料</a>

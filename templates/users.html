@@ -1,20 +1,19 @@
 {% extends "base.html" %}
 {% block content %}
+<a href="/" class="back-link">&larr; 返回</a>
 <h1>帳號管理</h1>
-<a href="/" class="back-link">&larr; 回清單</a>
 
-<!-- 新增帳號 -->
 <div class="section-card">
     <h2>新增帳號</h2>
     <form method="POST" action="/users/create" class="user-form">
         <div class="form-row">
             <div class="form-group">
                 <label for="username">帳號（英文）</label>
-                <input type="text" id="username" name="username" required placeholder="例如 designer_a">
+                <input type="text" id="username" name="username" required placeholder="designer_a">
             </div>
             <div class="form-group">
                 <label for="display_name">姓名</label>
-                <input type="text" id="display_name" name="display_name" required placeholder="例如 設計師A">
+                <input type="text" id="display_name" name="display_name" required placeholder="設計師 A">
             </div>
         </div>
         <div class="form-row">
@@ -34,7 +33,6 @@
     </form>
 </div>
 
-<!-- 帳號清單 -->
 <div class="section-card">
     <h2>帳號清單</h2>
     <table class="user-table">
@@ -55,9 +53,9 @@
                 <td>{{ '管理員' if u[3] == 'admin' else '設計師' }}</td>
                 <td>
                     {% if u[4] %}
-                    <span class="status-badge status-active">啟用中</span>
+                    <span class="status-badge status-active">啟用</span>
                     {% else %}
-                    <span class="status-badge status-disabled">已停用</span>
+                    <span class="status-badge status-disabled">停用</span>
                     {% endif %}
                 </td>
                 <td class="actions-cell">
