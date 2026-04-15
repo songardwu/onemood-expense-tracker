@@ -6,7 +6,7 @@ from io import BytesIO
 import pandas as pd
 import psycopg2
 from dotenv import load_dotenv
-from flask import Flask, redirect, render_template, request, send_file, session
+from flask import Flask, abort, redirect, render_template, request, send_file, session
 from werkzeug.security import check_password_hash, generate_password_hash
 
 load_dotenv('.env.local')
@@ -238,8 +238,13 @@ def delete(report_id):
     cur = conn.cursor()
 
     if user['role'] == 'designer':
-        cur.execute("DELETE FROM reports WHERE id = %s AND user_id = %s",
-                    (report_id, user['id']))
+        cur.execute("SELECT user_id FROM reports WHERE id = %s", (report_id,))
+        row = cur.fetchone()
+        if not row or row[0] != user['id']:
+            cur.close()
+            conn.close()
+            abort(403)
+        cur.execute("DELETE FROM reports WHERE id = %s", (report_id,))
     else:
         cur.execute("DELETE FROM reports WHERE id = %s", (report_id,))
 
@@ -261,8 +266,14 @@ def update_remit_date(report_id):
     cur = conn.cursor()
 
     if user['role'] == 'designer':
-        cur.execute("UPDATE reports SET remit_date = %s WHERE id = %s AND user_id = %s",
-                    (remit_date, report_id, user['id']))
+        cur.execute("SELECT user_id FROM reports WHERE id = %s", (report_id,))
+        row = cur.fetchone()
+        if not row or row[0] != user['id']:
+            cur.close()
+            conn.close()
+            abort(403)
+        cur.execute("UPDATE reports SET remit_date = %s WHERE id = %s",
+                    (remit_date, report_id))
     else:
         cur.execute("UPDATE reports SET remit_date = %s WHERE id = %s",
                     (remit_date, report_id))
