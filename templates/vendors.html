@@ -23,7 +23,7 @@
 {% endif %}
 
 <div class="bento-grid">
-<div class="bento-cell bento-cell--full">
+<div class="bento-cell bento-cell--full bento-cell--transparent">
 <div class="actions">
     <a href="/vendors/template" class="btn btn-secondary">下載範本</a>
     <form method="POST" action="/vendors/import" enctype="multipart/form-data" class="inline-form import-form">
@@ -34,7 +34,7 @@
 </div>
 </div>
 
-<div class="bento-cell bento-cell--full">
+<div class="bento-cell bento-cell--full bento-cell--transparent">
 <details class="vendor-add-panel" open>
     <summary>新增廠商</summary>
     <form method="POST" action="/vendors/create" class="vendor-form">
@@ -52,7 +52,7 @@
 </div>
 
 {% if vendors %}
-<div class="bento-cell bento-cell--full">
+<div class="bento-cell bento-cell--full bento-cell--transparent">
 <!-- ===== Desktop ===== -->
 <table class="desktop-table vendor-table">
     <thead>
@@ -150,7 +150,7 @@
 </div>
 
 {% else %}
-<div class="bento-cell bento-cell--full">
+<div class="bento-cell bento-cell--full bento-cell--transparent">
 <div class="empty-state">
     <p>目前沒有廠商資料</p>
     <p>使用「新增廠商」或「匯入」批次新增</p>

@@ -7,7 +7,7 @@
 {% endif %}
 
 <div class="bento-grid">
-<div class="bento-cell bento-cell--full">
+<div class="bento-cell bento-cell--full bento-cell--transparent">
 <div class="actions">
     <a href="/new" class="btn btn-primary">+ 新增提報</a>
     <a href="/export" class="btn btn-secondary">匯出 Excel</a>
@@ -39,7 +39,7 @@
 </div>
 
 {% if reports %}
-<div class="bento-cell bento-cell--full">
+<div class="bento-cell bento-cell--full bento-cell--transparent">
 <!-- ===== Desktop ===== -->
 <table class="desktop-table">
     <thead>
@@ -257,7 +257,7 @@
 </div>
 
 {% if dup_flags %}
-<div class="bento-cell bento-cell--full">
+<div class="bento-cell bento-cell--full bento-cell--transparent">
 <div class="dup-warning-panel">
     <h3>可能重複的廠商</h3>
     {% for vendor, dups in dup_flags.items() %}
@@ -273,7 +273,7 @@
 {% endif %}
 
 {% if reports %}
-<div class="bento-cell bento-cell--full">
+<div class="bento-cell bento-cell--full bento-cell--transparent">
 <div class="summary-panel">
     <h3>請款加總</h3>
     <div class="summary-section">

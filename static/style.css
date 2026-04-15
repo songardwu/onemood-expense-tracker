@@ -1065,10 +1065,21 @@ input, select, textarea {
     transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
+.bento-cell--transparent {
+    background: none;
+    padding: 0;
+    box-shadow: none;
+    border-radius: 0;
+}
+
 @media (hover: hover) {
     .bento-cell:hover {
         transform: translateY(-2px);
         box-shadow: var(--shadow-m);
+    }
+    .bento-cell--transparent:hover {
+        transform: none;
+        box-shadow: none;
     }
 }
 
