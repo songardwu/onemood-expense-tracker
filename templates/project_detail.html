@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block content %}
+<div style="display:flex;align-items:center;gap:12px;margin-bottom:4px;">
+    <h1 style="margin:0;">{{ project.case_name }}</h1>
+    {% if project.status == 'active' %}
+        <span class="status-badge status-active">進行中</span>
+    {% elif project.status == 'completed' %}
+        <span class="status-badge status-completed">已完工</span>
+    {% elif project.status == 'closed' %}
+        <span class="status-badge status-closed">已結案</span>
+    {% endif %}
+</div>
+<p style="color:var(--text-secondary);margin-bottom:20px;">{{ project.case_id }}</p>
+
+<div class="bento-grid">
+
+<!-- 區塊一：基本資料 -->
+<div class="bento-cell bento-cell--half">
+    <h3>案場基本資料</h3>
+    <table class="detail-table">
+        <tr><td class="label">業主姓名</td><td>{{ project.owner_name or '-' }}</td></tr>
+        <tr><td class="label">電話</td><td>{{ project.owner_phone or '-' }}</td></tr>
+        <tr><td class="label">地址</td><td>{{ project.owner_address or '-' }}</td></tr>
+        <tr><td class="label">簽約日期</td><td>{{ project.contract_date or '-' }}</td></tr>
+        <tr><td class="label">設計師</td><td>{{ project.designer_name }}</td></tr>
+    </table>
+</div>
+
+<!-- 施工資訊 -->
+<div class="bento-cell bento-cell--half">
+    <h3>施工資訊</h3>
+    <table class="detail-table">
+        <tr><td class="label">施工開始</td><td>{{ project.construction_start or '-' }}</td></tr>
+        <tr><td class="label">施工結束</td><td>{{ project.construction_end or '-' }}</td></tr>
+        <tr>
+            <td class="label">施工天數</td>
+            <td>{{ '%d 天' % construction_days if construction_days else '-' }}</td>
+        </tr>
+    </table>
+</div>
+
+<!-- 操作按鈕 -->
+<div class="bento-cell bento-cell--full bento-cell--transparent">
+    <div class="actions">
+        {% if project.status != 'closed' or user.role == 'admin' %}
+        <a href="/projects/{{ project.id }}/edit" class="btn btn-primary">編輯</a>
+        {% endif %}
+
+        {% if project.status == 'active' %}
+        <form method="POST" action="/projects/{{ project.id }}/status" class="inline-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="status" value="completed">
+            <button type="submit" class="btn btn-secondary">標記已完工</button>
+        </form>
+        {% elif project.status == 'completed' and user.role == 'admin' %}
+        <form method="POST" action="/projects/{{ project.id }}/status" class="inline-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="status" value="closed">
+            <button type="submit" class="btn btn-danger">結案鎖定</button>
+        </form>
+        <form method="POST" action="/projects/{{ project.id }}/status" class="inline-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="status" value="active">
+            <button type="submit" class="btn btn-secondary">恢復進行中</button>
+        </form>
+        {% elif project.status == 'closed' and user.role == 'admin' %}
+        <form method="POST" action="/projects/{{ project.id }}/status" class="inline-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="status" value="active">
+            <button type="submit" class="btn btn-secondary">解除結案</button>
+        </form>
+        {% endif %}
+
+        <a href="/projects" class="btn btn-secondary">返回列表</a>
+    </div>
+</div>
+
+</div>
+{% endblock %}

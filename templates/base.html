@@ -20,6 +20,7 @@
         <a href="/" class="nav-brand">Dawn</a>
         <div class="nav-right">
             <span class="nav-user">{{ user.display_name }}</span>
+            <a href="/projects" class="nav-link">案場管理</a>
             <a href="/vendors" class="nav-link">廠商資料</a>
             {% if user.role == 'admin' %}
             <a href="/users" class="nav-link">帳號管理</a>

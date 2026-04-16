@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>案場管理</h1>
+
+<div class="bento-grid">
+<div class="bento-cell bento-cell--full bento-cell--transparent">
+<div class="actions">
+    <a href="/projects/new" class="btn btn-primary">+ 新增案場</a>
+</div>
+
+{% if projects %}
+<!-- Desktop Table -->
+<table class="desktop-table">
+    <thead>
+        <tr>
+            <th>案場編號</th>
+            <th>案名</th>
+            <th>業主</th>
+            {% if user.role == 'admin' %}<th>設計師</th>{% endif %}
+            <th>簽約日期</th>
+            <th>施工期間</th>
+            <th>合約金額</th>
+            <th>狀態</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for p in projects %}
+        <tr>
+            <td>{{ p[1] }}</td>
+            <td><a href="/projects/{{ p[0] }}">{{ p[2] }}</a></td>
+            <td>{{ p[3] or '-' }}</td>
+            {% if user.role == 'admin' %}<td>{{ p[8] }}</td>{% endif %}
+            <td>{{ p[4] or '-' }}</td>
+            <td>
+                {% if p[5] and p[6] %}
+                    {{ p[5] }} ~ {{ p[6] }}
+                {% else %}
+                    -
+                {% endif %}
+            </td>
+            <td class="amount">
+                {% set total = (p[9] or 0) + (p[10] or 0) %}
+                {{ "{:,.0f}".format(total) }}
+            </td>
+            <td>
+                {% if p[7] == 'active' %}
+                    <span class="status-badge status-active">進行中</span>
+                {% elif p[7] == 'completed' %}
+                    <span class="status-badge status-completed">已完工</span>
+                {% elif p[7] == 'closed' %}
+                    <span class="status-badge status-closed">已結案</span>
+                {% endif %}
+            </td>
+            <td>
+                <a href="/projects/{{ p[0] }}" class="btn-small">檢視</a>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<!-- Mobile Cards -->
+<div class="mobile-cards">
+    {% for p in projects %}
+    <a href="/projects/{{ p[0] }}" class="bento-cell" style="text-decoration:none;color:inherit;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <strong>{{ p[2] }}</strong>
+            {% if p[7] == 'active' %}
+                <span class="status-badge status-active">進行中</span>
+            {% elif p[7] == 'completed' %}
+                <span class="status-badge status-completed">已完工</span>
+            {% elif p[7] == 'closed' %}
+                <span class="status-badge status-closed">已結案</span>
+            {% endif %}
+        </div>
+        <div style="font-size:13px;color:var(--text-secondary);">
+            {{ p[1] }} | {{ p[3] or '-' }}
+            {% if user.role == 'admin' %} | {{ p[8] }}{% endif %}
+        </div>
+        <div style="font-size:15px;margin-top:6px;">
+            {% set total = (p[9] or 0) + (p[10] or 0) %}
+            合約金額：{{ "{:,.0f}".format(total) }}
+        </div>
+    </a>
+    {% endfor %}
+</div>
+
+{% else %}
+<p style="text-align:center;color:var(--text-secondary);padding:40px 0;">目前沒有案場資料</p>
+{% endif %}
+</div>
+</div>
+{% endblock %}

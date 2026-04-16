@@ -46,11 +46,13 @@ from routes.auth import bp as auth_bp
 from routes.reports import bp as reports_bp
 from routes.vendors import bp as vendors_bp
 from routes.users import bp as users_bp
+from routes.projects import bp as projects_bp
 
 app.register_blueprint(auth_bp)
 app.register_blueprint(reports_bp)
 app.register_blueprint(vendors_bp)
 app.register_blueprint(users_bp)
+app.register_blueprint(projects_bp)
 
 
 if __name__ == '__main__':
