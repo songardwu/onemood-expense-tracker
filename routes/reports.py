@@ -172,7 +172,8 @@ def index():
             core2 = get_core(v2)
             acct2 = vendor_accounts.get(v2, '')
             is_similar = False
-            if core1 and core2 and (core1 == core2 or core1 in core2 or core2 in core1):
+            # 核心字串至少 2 字元才做子字串比對，避免短名稱誤判
+            if len(core1) >= 2 and len(core2) >= 2 and (core1 == core2 or core1 in core2 or core2 in core1):
                 is_similar = True
             if acct1 and acct2 and acct1 == acct2:
                 is_similar = True
@@ -489,7 +490,7 @@ def check_vendor():
         for kw in keywords:
             v_core = v_core.replace(kw, '')
         v_core = v_core.strip()
-        if v_core and (v_core == core or core in v_core or v_core in core):
+        if len(v_core) >= 2 and len(core) >= 2 and (v_core == core or core in v_core or v_core in core):
             similar.add(v)
         if q_account and vendor_accounts.get(v, '') == q_account:
             similar.add(v)

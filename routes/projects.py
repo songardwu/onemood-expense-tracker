@@ -5,6 +5,7 @@ from flask import Blueprint, abort, jsonify, redirect, render_template, request
 
 from services.utils import (
     admin_required,
+    check_optimistic_lock,
     check_project_access,
     get_conn,
     get_current_user,
@@ -396,6 +397,9 @@ def update_revenue(project_id):
     if not proj:
         cur.close()
         abort(403)
+    if not check_optimistic_lock(cur, project_id):
+        cur.close()
+        return redirect(f'/projects/{project_id}?error=conflict')
 
     fields = {
         'system_furniture_amount': request.form.get('system_furniture_amount', '0').strip(),
@@ -432,6 +436,9 @@ def update_deposit(project_id):
     if not proj:
         cur.close()
         abort(403)
+    if not check_optimistic_lock(cur, project_id):
+        cur.close()
+        return redirect(f'/projects/{project_id}?error=conflict')
 
     try:
         dep_amt = Decimal(request.form.get('deposit_amount', '0').strip() or '0')
@@ -672,6 +679,9 @@ def update_costs(project_id):
     if not proj:
         cur.close()
         abort(403)
+    if not check_optimistic_lock(cur, project_id):
+        cur.close()
+        return redirect(f'/projects/{project_id}?error=conflict')
 
     cur.execute("SELECT id FROM cost_categories WHERE is_active = TRUE")
     cat_ids = [r[0] for r in cur.fetchall()]

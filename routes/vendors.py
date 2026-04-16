@@ -2,7 +2,7 @@ from io import BytesIO
 
 import pandas as pd
 import psycopg2
-from flask import Blueprint, jsonify, redirect, render_template, request, send_file, session
+from flask import Blueprint, flash, jsonify, redirect, render_template, request, send_file
 
 from services.utils import admin_required, get_conn, get_current_user, login_required
 
@@ -39,9 +39,8 @@ def vendor_list():
     elif error == 'toomany':
         error_msg = '匯入筆數超過 500 筆上限'
 
-    import_result = session.pop('import_result', None)
     return render_template('vendors.html', vendors=vendors, user=user,
-                           error=error_msg, import_result=import_result)
+                           error=error_msg)
 
 
 @bp.route('/vendors/create', methods=['POST'])
@@ -214,10 +213,14 @@ def vendor_import():
     conn.commit()
     cur.close()
 
-    session['import_result'] = {
-        'added': added, 'updated': updated,
-        'skipped': skipped, 'errors': errors
-    }
+    msg = f'匯入完成：新增 {added} 筆'
+    if updated:
+        msg += f'、更新 {updated} 筆'
+    if skipped:
+        msg += f'、跳過 {skipped} 筆'
+    if errors:
+        msg += '。' + '；'.join(errors[:10])  # 最多顯示 10 筆錯誤
+    flash(msg, 'import')
     return redirect('/vendors')
 
 

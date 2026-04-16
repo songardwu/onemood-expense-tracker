@@ -177,6 +177,21 @@ def check_project_access(cur, project_id, user, require_editable=True):
 
 
 # =====================
+# 樂觀鎖（併發編輯保護）
+# =====================
+def check_optimistic_lock(cur, project_id):
+    """比對表單送出時的 updated_at 與 DB 現值，不匹配回傳 False"""
+    expected = request.form.get('expected_updated_at', '').strip()
+    if not expected:
+        return True  # 無鎖定欄位則跳過（向下相容）
+    cur.execute("SELECT updated_at FROM projects WHERE id = %s", (project_id,))
+    row = cur.fetchone()
+    if not row or not row[0]:
+        return True
+    return str(row[0]) == expected
+
+
+# =====================
 # 分頁工具
 # =====================
 def get_page_info(total, per_page=50):

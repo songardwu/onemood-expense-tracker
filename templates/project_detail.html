@@ -15,6 +15,10 @@
 
 {% set editable = project.status != 'closed' or user.role == 'admin' %}
 
+{% if request.args.get('error') == 'conflict' %}
+<div class="error-banner">此案場資料已被其他人修改，請確認最新數據後重新操作。</div>
+{% endif %}
+
 <div class="bento-grid">
 
 <!-- ========== 區塊一：基本資料 ========== -->
@@ -45,6 +49,7 @@
     <!-- 合約金額 -->
     <form method="POST" action="/projects/{{ project.id }}/revenue" class="section-form">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="expected_updated_at" value="{{ project.updated_at }}">
         <div class="form-grid">
             <div class="form-group">
                 <label>系統家具金額</label>
@@ -157,6 +162,7 @@
     <h4>裝修押金</h4>
     <form method="POST" action="/projects/{{ project.id }}/deposit" class="section-form">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="expected_updated_at" value="{{ project.updated_at }}">
         <div class="form-grid">
             <div class="form-group">
                 <label>押金金額</label>
@@ -257,6 +263,7 @@
 <div class="bento-cell bento-cell--full">
     <h3>支出成本明細</h3>
     <form method="POST" action="/projects/{{ project.id }}/costs">
+        <input type="hidden" name="expected_updated_at" value="{{ project.updated_at }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="cost-grid">
             <div class="cost-section">

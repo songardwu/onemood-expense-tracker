@@ -8,20 +8,9 @@
 <div class="error-banner">{{ error }}</div>
 {% endif %}
 
-{% if import_result %}
-<div class="import-result">
-    匯入完成：新增 {{ import_result.added }} 筆
-    {% if import_result.updated %}、更新 {{ import_result.updated }} 筆{% endif %}
-    {% if import_result.skipped %}、跳過 {{ import_result.skipped }} 筆{% endif %}
-    {% if import_result.errors %}
-    <ul class="import-errors">
-        {% for e in import_result.errors %}
-        <li>{{ e }}</li>
-        {% endfor %}
-    </ul>
-    {% endif %}
-</div>
-{% endif %}
+{% for msg in get_flashed_messages(category_filter=['import']) %}
+<div class="import-result">{{ msg }}</div>
+{% endfor %}
 
 <div class="bento-grid">
 <div class="bento-cell bento-cell--full bento-cell--transparent">
