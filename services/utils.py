@@ -1,9 +1,10 @@
+import math
 import os
 from datetime import date, timedelta
 from functools import wraps
 
 import psycopg2
-from flask import redirect, session
+from flask import g, redirect, request, session
 
 # =====================
 # 台灣國定假日 + 匯款日期計算
@@ -85,11 +86,24 @@ def default_remit_date(from_date=None):
 
 
 # =====================
-# DB 連線
+# DB 連線（Flask g 自動回收，防洩漏）
 # =====================
 def get_conn():
-    url = os.environ.get('POSTGRES_URL') or os.environ.get('DATABASE_URL')
-    return psycopg2.connect(url)
+    """取得 DB 連線，同一 request 內共用，結束時自動關閉"""
+    if 'db' not in g:
+        url = os.environ.get('POSTGRES_URL') or os.environ.get('DATABASE_URL')
+        g.db = psycopg2.connect(url)
+    return g.db
+
+
+def close_db(e=None):
+    """teardown_appcontext callback — 自動關閉連線"""
+    db = g.pop('db', None)
+    if db is not None:
+        try:
+            db.close()
+        except Exception:
+            pass
 
 
 # =====================
@@ -160,3 +174,16 @@ def check_project_access(cur, project_id, user, require_editable=True):
     if require_editable and proj['status'] == 'closed' and user['role'] != 'admin':
         return None
     return proj
+
+
+# =====================
+# 分頁工具
+# =====================
+def get_page_info(total, per_page=50):
+    """從 request.args 取得分頁資訊，回傳 (page, per_page, offset, total_pages)"""
+    page = request.args.get('page', 1, type=int)
+    page = max(1, page)
+    total_pages = max(1, math.ceil(total / per_page))
+    page = min(page, total_pages)
+    offset = (page - 1) * per_page
+    return page, per_page, offset, total_pages

@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% block title %}廠商資料{% endblock %}
 {% block content %}
 <a href="/" class="back-link">&larr; 返回</a>
 <h1>廠商資料</h1>
@@ -40,11 +41,11 @@
     <form method="POST" action="/vendors/create" class="vendor-form">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="vendor-form-row">
-            <input type="text" name="name" placeholder="名稱 *" required>
-            <input type="text" name="bank_name" placeholder="銀行分行 *" required>
-            <input type="text" name="bank_code" placeholder="代碼 *" required>
-            <input type="text" name="account_no" placeholder="帳號 *" required>
-            <input type="text" name="account_name" placeholder="戶名 *" required>
+            <input type="text" name="name" placeholder="名稱 *" required aria-label="廠商名稱">
+            <input type="text" name="bank_name" placeholder="銀行分行 *" required aria-label="銀行分行">
+            <input type="text" name="bank_code" placeholder="代碼 *" required aria-label="銀行代碼">
+            <input type="text" name="account_no" placeholder="帳號 *" required aria-label="銀行帳號">
+            <input type="text" name="account_name" placeholder="戶名 *" required aria-label="戶名">
             <button type="submit" class="btn btn-primary">新增</button>
         </div>
     </form>
@@ -57,12 +58,12 @@
 <table class="desktop-table vendor-table">
     <thead>
         <tr>
-            <th>名稱</th>
-            <th>銀行分行</th>
-            <th>代碼</th>
-            <th>帳號</th>
-            <th>戶名</th>
-            {% if user.role == 'admin' %}<th></th>{% endif %}
+            <th scope="col">名稱</th>
+            <th scope="col">銀行分行</th>
+            <th scope="col">代碼</th>
+            <th scope="col">帳號</th>
+            <th scope="col">戶名</th>
+            {% if user.role == 'admin' %}<th scope="col"></th>{% endif %}
         </tr>
     </thead>
     <tbody>

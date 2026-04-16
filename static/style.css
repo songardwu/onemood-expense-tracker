@@ -23,6 +23,24 @@
     size-adjust: 97%;
 }
 
+/* --- Skip Link (WCAG 2.4.1) --- */
+.skip-link {
+    position: absolute;
+    left: -9999px;
+    top: 0;
+    z-index: 999;
+    background: var(--accent);
+    color: #fff;
+    padding: 8px 16px;
+    font-size: 14px;
+    text-decoration: none;
+    border-radius: 0 0 var(--radius-s) var(--radius-s);
+}
+.skip-link:focus {
+    left: 50%;
+    transform: translateX(-50%);
+}
+
 /* --- Reset & Foundation --- */
 *, *::before, *::after {
     margin: 0;
@@ -150,6 +168,42 @@ body {
 }
 
 .nav-link:hover { opacity: 0.7; }
+
+/* --- Hamburger Toggle (mobile) --- */
+.nav-toggle {
+    display: none;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 8px;
+    min-height: 44px;
+    min-width: 44px;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 4px;
+}
+.nav-toggle span {
+    display: block;
+    width: 20px;
+    height: 2px;
+    background: var(--text-primary);
+    border-radius: 1px;
+    transition: all var(--transition);
+}
+
+/* --- Logout Form (inline in nav) --- */
+.nav-logout-form {
+    display: inline;
+    margin: 0;
+    padding: 0;
+}
+.nav-logout-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: var(--font);
+}
 
 /* --- Container --- */
 .container {
@@ -301,13 +355,14 @@ h2 {
 }
 
 .btn-small {
-    padding: 5px 14px;
+    padding: 8px 14px;
     border-radius: var(--radius-s);
     font-size: 12px;
     font-weight: 500;
     cursor: pointer;
     border: none;
     transition: all var(--transition);
+    min-height: 36px;
 }
 
 .btn-small:active { transform: scale(0.96); }
@@ -414,7 +469,13 @@ input, select, textarea {
     cursor: pointer;
 }
 
-.radio-label input[type="radio"] { display: none; }
+.radio-label input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+    pointer-events: none;
+}
 
 .radio-label span {
     display: block;
@@ -1101,6 +1162,32 @@ input, select, textarea {
 .mobile-cards { display: flex; }
 .desktop-table { display: none; }
 
+/* Mobile hamburger nav */
+@media (max-width: 767px) {
+    .nav-toggle { display: flex; }
+    .nav-right {
+        display: none;
+        position: absolute;
+        top: 48px;
+        left: 0;
+        right: 0;
+        background: var(--surface);
+        border-bottom: 1px solid var(--border);
+        flex-direction: column;
+        padding: 12px 20px;
+        gap: 8px;
+        box-shadow: var(--shadow-m);
+        z-index: 99;
+    }
+    .navbar.nav-open .nav-right { display: flex; }
+    .nav-right .nav-link,
+    .nav-right .nav-user,
+    .nav-right .nav-logout-btn {
+        font-size: 15px;
+        padding: 8px 0;
+    }
+}
+
 /* --- Tablet (768px+) --- */
 @media (min-width: 768px) {
     .container { padding: 32px 40px 60px; }
@@ -1140,6 +1227,13 @@ input, select, textarea {
     .navbar { padding: 0 40px; }
 }
 
+/* --- Mid Mobile (480px+) — large phones & small tablets --- */
+@media (min-width: 480px) and (max-width: 767px) {
+    .inline-add-form { flex-wrap: wrap; }
+    .dashboard-grid { grid-template-columns: repeat(2, 1fr); }
+    .user-table, .detail-table { font-size: 13px; }
+}
+
 /* --- Small Mobile (< 390px) --- */
 @media (max-width: 389px) {
     .navbar {
@@ -1165,6 +1259,8 @@ input, select, textarea {
 
     .bento-cell { padding: 16px; }
     .bento-grid { gap: 12px; }
+    .dashboard-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+    .dashboard-value { font-size: 18px; }
 }
 
 /* --- Safe Area (iPhone notch) --- */
@@ -1337,6 +1433,66 @@ input, select, textarea {
     border-radius: var(--radius-s);
     font-size: 12px;
     cursor: pointer;
+}
+
+/* --- Pagination --- */
+.pagination {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    margin-top: 24px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border-light);
+}
+
+.pagination-info {
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.pagination-links {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.pagination-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 36px;
+    min-height: 36px;
+    padding: 6px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-s);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--accent);
+    text-decoration: none;
+    transition: all var(--transition);
+}
+
+.pagination-link:hover {
+    background: var(--accent-light);
+    border-color: var(--accent);
+}
+
+.pagination-current {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+}
+
+.pagination-ellipsis {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 36px;
+    min-height: 36px;
+    font-size: 13px;
+    color: var(--text-tertiary);
 }
 
 /* --- Dark mode — Earth-tone dark (respects system preference) --- */

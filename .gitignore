@@ -5,3 +5,4 @@ __pycache__/
 .vercel/
 dev.db
 *.xlsx
+.planning/

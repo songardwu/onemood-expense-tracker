@@ -1,4 +1,4 @@
-# HANDOFF — 2026-04-15 Night（V1~V4 + UI Redesign + CSRF）
+# HANDOFF — 2026-04-15 Night（V1~V4 + UI Redesign + CSRF + Session 安全強化）
 
 ## 專案概述
 
@@ -7,7 +7,7 @@
 - **線上網址：** https://onemood-expense-tracker.vercel.app
 - **GitHub：** https://github.com/songardwu/onemood-expense-tracker
 - **技術棧：** Flask + Jinja2 + Neon Postgres + Vercel Serverless
-- **程式碼量：** ~3,500 行（app.py 1,119 / CSS 1,120 / 模板 6 個 / JS 60 / 測試 520）
+- **程式碼量：** ~3,500 行（app.py 1,121 / CSS 1,120 / 模板 6 個 / JS 60 / 測試 520）
 - **管理員登入：** dawn / dawn1234（⚠️ 需更換）
 - **設計師登入：** designer_a / test1234
 
@@ -46,6 +46,10 @@
 - 「名稱」→「請款名稱」欄位更名
 - 匯款日期欄位移至匯款方式前
 - 請款加總帶入廠商匯款帳號資訊
+
+### Session Cookie 安全強化（已完成 ✅）— 本次新增
+- `SESSION_COOKIE_HTTPONLY = True` — 防止 JavaScript 讀取 session cookie（擋 XSS 竊取 session）
+- `SESSION_COOKIE_SAMESITE = 'Lax'` — 瀏覽器不在跨站請求中自動帶 cookie（強化 CSRF 防護）
 
 ### CSRF 防護（已完成 ✅）— 本次新增
 - `flask-wtf` CSRFProtect 初始化，使用既有 `SECRET_KEY`
@@ -129,8 +133,8 @@ r[13]=updated_by, r[14]=updated_at, r[15]=updater_name, r[16]=payment_method
 | MIME Sniffing | ✅ | X-Content-Type-Options: nosniff |
 | Session 加密 | ✅ | Flask signed cookie + SECRET_KEY |
 | HTTPS | ✅ | Vercel 強制 HTTPS + SESSION_COOKIE_SECURE |
-| Session HttpOnly | ⚠️ 未設定 | 需加 `SESSION_COOKIE_HTTPONLY = True` |
-| Session SameSite | ⚠️ 未設定 | 需加 `SESSION_COOKIE_SAMESITE = 'Lax'` |
+| Session HttpOnly | ✅ 已完成 | `SESSION_COOKIE_HTTPONLY = True` |
+| Session SameSite | ✅ 已完成 | `SESSION_COOKIE_SAMESITE = 'Lax'` |
 | Rate Limiting | ❌ 未實作 | 登入可無限嘗試 |
 | 密碼複雜度 | ❌ 未實作 | 無最小長度要求 |
 
@@ -155,6 +159,7 @@ r[13]=updated_by, r[14]=updated_at, r[15]=updater_name, r[16]=payment_method
 | Excel 匯出（含 V4 新欄位） | scenario test #13 | ✅ |
 | 導航列 | scenario test #14 | ✅ |
 | **CSRF 防護全表單覆蓋** | scenario test 全程帶 token | ✅ |
+| **Session Cookie HttpOnly + SameSite** | app.py 設定 + 69/69 測試通過 | ✅ |
 | 請款加總含匯款帳號資訊 | 手動驗證 | ✅ |
 | Apple 極簡 UI + Dark Mode | 手動驗證 | ✅ |
 
@@ -205,4 +210,4 @@ git push origin master   # 自動觸發 Vercel 部署
 - **Dark Mode** — `prefers-color-scheme: dark` media query，自動跟隨系統
 - **廠商比對** — `vendor_keywords` 去關鍵字後比對 + 銀行帳號交叉比對
 - **假日** — 2026-2027 台灣國定假日 hardcoded（`TW_HOLIDAYS` set）
-- **SESSION_COOKIE_SECURE** — `bool(os.environ.get('VERCEL'))`，僅 Vercel 啟用
+- **Session Cookie** — SECURE（僅 Vercel）+ HttpOnly + SameSite=Lax，三重防護

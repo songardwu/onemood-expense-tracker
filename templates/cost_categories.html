@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% block title %}成本科目管理{% endblock %}
 {% block content %}
 <h1>成本科目管理</h1>
 
@@ -6,15 +7,16 @@
 
 <div class="bento-cell bento-cell--half">
     <h3>系統工程成本</h3>
-    <table class="detail-table">
-        <thead><tr><th>科目名稱</th><th>狀態</th><th></th></tr></thead>
+    <!-- Desktop -->
+    <table class="detail-table desktop-table">
+        <thead><tr><th scope="col">科目名稱</th><th scope="col">狀態</th><th scope="col"></th></tr></thead>
         <tbody>
         {% for c in categories if c[2] == 'system' %}
         <tr style="{{ 'opacity:0.4;' if not c[4] else '' }}">
             <td>
                 <form method="POST" action="/cost-categories/{{ c[0] }}/update" class="inline-form">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    <input type="text" name="name" value="{{ c[1] }}" class="small-input" style="width:160px;">
+                    <input type="text" name="name" value="{{ c[1] }}" class="small-input" aria-label="科目名稱">
                     <button type="submit" class="btn-small">更新</button>
                 </form>
             </td>
@@ -37,19 +39,50 @@
         {% endfor %}
         </tbody>
     </table>
+    <!-- Mobile -->
+    <div class="mobile-cards">
+        {% for c in categories if c[2] == 'system' %}
+        <div class="card" style="{{ 'opacity:0.4;' if not c[4] else '' }}">
+            <div class="card-header">
+                <span class="card-date">{{ c[1] }}</span>
+                {% if c[4] %}
+                <span class="status-badge status-active">啟用</span>
+                {% else %}
+                <span class="status-badge status-disabled">停用</span>
+                {% endif %}
+            </div>
+            <div class="card-body">
+                <div class="card-row" style="gap:8px;flex-wrap:wrap;">
+                    <form method="POST" action="/cost-categories/{{ c[0] }}/update" class="inline-form" style="flex:1;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="text" name="name" value="{{ c[1] }}" class="small-input" style="flex:1;width:auto;" aria-label="科目名稱">
+                        <button type="submit" class="btn-small">更新</button>
+                    </form>
+                    <form method="POST" action="/cost-categories/{{ c[0] }}/toggle" class="inline-form">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn-small {{ 'btn-danger' if c[4] else 'btn-success' }}">
+                            {{ '停用' if c[4] else '啟用' }}
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
 </div>
 
 <div class="bento-cell bento-cell--half">
     <h3>非系統工程成本</h3>
-    <table class="detail-table">
-        <thead><tr><th>科目名稱</th><th>狀態</th><th></th></tr></thead>
+    <!-- Desktop -->
+    <table class="detail-table desktop-table">
+        <thead><tr><th scope="col">科目名稱</th><th scope="col">狀態</th><th scope="col"></th></tr></thead>
         <tbody>
         {% for c in categories if c[2] == 'non_system' %}
         <tr style="{{ 'opacity:0.4;' if not c[4] else '' }}">
             <td>
                 <form method="POST" action="/cost-categories/{{ c[0] }}/update" class="inline-form">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    <input type="text" name="name" value="{{ c[1] }}" class="small-input" style="width:160px;">
+                    <input type="text" name="name" value="{{ c[1] }}" class="small-input" aria-label="科目名稱">
                     <button type="submit" class="btn-small">更新</button>
                 </form>
             </td>
@@ -72,6 +105,36 @@
         {% endfor %}
         </tbody>
     </table>
+    <!-- Mobile -->
+    <div class="mobile-cards">
+        {% for c in categories if c[2] == 'non_system' %}
+        <div class="card" style="{{ 'opacity:0.4;' if not c[4] else '' }}">
+            <div class="card-header">
+                <span class="card-date">{{ c[1] }}</span>
+                {% if c[4] %}
+                <span class="status-badge status-active">啟用</span>
+                {% else %}
+                <span class="status-badge status-disabled">停用</span>
+                {% endif %}
+            </div>
+            <div class="card-body">
+                <div class="card-row" style="gap:8px;flex-wrap:wrap;">
+                    <form method="POST" action="/cost-categories/{{ c[0] }}/update" class="inline-form" style="flex:1;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="text" name="name" value="{{ c[1] }}" class="small-input" style="flex:1;width:auto;" aria-label="科目名稱">
+                        <button type="submit" class="btn-small">更新</button>
+                    </form>
+                    <form method="POST" action="/cost-categories/{{ c[0] }}/toggle" class="inline-form">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn-small {{ 'btn-danger' if c[4] else 'btn-success' }}">
+                            {{ '停用' if c[4] else '啟用' }}
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
 </div>
 
 <!-- 新增科目 -->
@@ -79,7 +142,7 @@
     <h3>新增科目</h3>
     <form method="POST" action="/cost-categories/create" class="inline-add-form">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <input type="text" name="name" placeholder="科目名稱" class="small-input" style="width:200px;" required>
+        <input type="text" name="name" placeholder="科目名稱" class="small-input" aria-label="新科目名稱" required>
         <select name="cost_type" class="small-input" required>
             <option value="system">系統工程</option>
             <option value="non_system">非系統工程</option>

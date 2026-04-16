@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% block title %}帳號管理{% endblock %}
 {% block content %}
 <a href="/" class="back-link">&larr; 返回</a>
 <h1>帳號管理</h1>
@@ -37,14 +38,15 @@
 
 <div class="bento-cell bento-cell--full">
     <h2>帳號清單</h2>
-    <table class="user-table">
+    <!-- Desktop Table -->
+    <table class="user-table desktop-table">
         <thead>
             <tr>
-                <th>帳號</th>
-                <th>姓名</th>
-                <th>角色</th>
-                <th>狀態</th>
-                <th>操作</th>
+                <th scope="col">帳號</th>
+                <th scope="col">姓名</th>
+                <th scope="col">角色</th>
+                <th scope="col">狀態</th>
+                <th scope="col">操作</th>
             </tr>
         </thead>
         <tbody>
@@ -70,7 +72,7 @@
                     </form>
                     <form method="POST" action="/users/{{ u[0] }}/reset-password" class="inline-form">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <input type="password" name="new_password" placeholder="新密碼" class="small-input" required>
+                        <input type="password" name="new_password" placeholder="新密碼（至少6字元）" class="small-input" required minlength="6" autocomplete="new-password" aria-label="重設密碼">
                         <button type="submit" class="btn-small btn-outline">重設</button>
                     </form>
                     {% else %}
@@ -81,6 +83,51 @@
             {% endfor %}
         </tbody>
     </table>
+
+    <!-- Mobile Cards -->
+    <div class="mobile-cards">
+        {% for u in users %}
+        <div class="card {{ 'row-disabled' if not u[4] else '' }}">
+            <div class="card-header">
+                <span class="card-date">{{ u[2] }}</span>
+                {% if u[4] %}
+                <span class="status-badge status-active">啟用</span>
+                {% else %}
+                <span class="status-badge status-disabled">停用</span>
+                {% endif %}
+            </div>
+            <div class="card-body">
+                <div class="card-row">
+                    <span class="card-label">帳號</span>
+                    <span class="card-value">{{ u[1] }}</span>
+                </div>
+                <div class="card-row">
+                    <span class="card-label">角色</span>
+                    <span class="card-value">{{ '管理員' if u[3] == 'admin' else '設計師' }}</span>
+                </div>
+                {% if u[0] != user.id %}
+                <div class="card-row" style="margin-top:8px;gap:8px;flex-wrap:wrap;">
+                    <form method="POST" action="/users/{{ u[0] }}/toggle" class="inline-form">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn-small {{ 'btn-danger' if u[4] else 'btn-success' }}">
+                            {{ '停用' if u[4] else '啟用' }}
+                        </button>
+                    </form>
+                    <form method="POST" action="/users/{{ u[0] }}/reset-password" class="inline-form" style="flex:1;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="password" name="new_password" placeholder="新密碼（至少6字元）" class="small-input" style="flex:1;width:auto;" required minlength="6" autocomplete="new-password" aria-label="重設 {{ u[2] }} 密碼">
+                        <button type="submit" class="btn-small btn-outline">重設</button>
+                    </form>
+                </div>
+                {% else %}
+                <div class="card-row" style="margin-top:8px;">
+                    <span class="text-muted">（自己）</span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
 </div>
 </div> <!-- /.bento-grid -->
 {% endblock %}

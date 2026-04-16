@@ -8,16 +8,23 @@
     <meta name="theme-color" content="#F5F2ED" media="(prefers-color-scheme: light)">
     <meta name="theme-color" content="#1E1A17" media="(prefers-color-scheme: dark)">
     <meta name="color-scheme" content="light dark">
-    <title>出帳管理</title>
+    <title>{% block title %}出帳管理{% endblock %} — Dawn</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC&family=Noto+Serif+TC:wght@700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
+    <!-- Skip Link (WCAG 2.4.1) -->
+    <a href="#main-content" class="skip-link">跳至主要內容</a>
+
     {% if user %}
-    <nav class="navbar">
+    <nav class="navbar" aria-label="主要導覽">
         <a href="/" class="nav-brand">Dawn</a>
+        <button class="nav-toggle" aria-label="開啟選單" aria-expanded="false"
+                onclick="this.setAttribute('aria-expanded',this.getAttribute('aria-expanded')==='false'?'true':'false');this.closest('.navbar').classList.toggle('nav-open');">
+            <span></span><span></span><span></span>
+        </button>
         <div class="nav-right">
             <span class="nav-user">{{ user.display_name }}</span>
             <a href="/projects" class="nav-link">案場管理</a>
@@ -26,12 +33,15 @@
             <a href="/cost-categories" class="nav-link">成本科目</a>
             <a href="/users" class="nav-link">帳號管理</a>
             {% endif %}
-            <a href="/logout" class="nav-link">登出</a>
+            <form method="POST" action="/logout" class="nav-logout-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="nav-link nav-logout-btn">登出</button>
+            </form>
         </div>
     </nav>
     {% endif %}
-    <div class="container">
+    <main id="main-content" class="container" role="main">
         {% block content %}{% endblock %}
-    </div>
+    </main>
 </body>
 </html>

@@ -1,4 +1,6 @@
 {% extends "base.html" %}
+{% from "pagination.html" import render as pagination %}
+{% block title %}案場管理{% endblock %}
 {% block content %}
 <h1>案場管理</h1>
 
@@ -13,15 +15,15 @@
 <table class="desktop-table">
     <thead>
         <tr>
-            <th>案場編號</th>
-            <th>案名</th>
-            <th>業主</th>
-            {% if user.role == 'admin' %}<th>設計師</th>{% endif %}
-            <th>簽約日期</th>
-            <th>施工期間</th>
-            <th>合約金額</th>
-            <th>狀態</th>
-            <th></th>
+            <th scope="col">案場編號</th>
+            <th scope="col">案名</th>
+            <th scope="col">業主</th>
+            {% if user.role == 'admin' %}<th scope="col">設計師</th>{% endif %}
+            <th scope="col">簽約日期</th>
+            <th scope="col">施工期間</th>
+            <th scope="col">合約金額</th>
+            <th scope="col">狀態</th>
+            <th scope="col"></th>
         </tr>
     </thead>
     <tbody>
@@ -85,6 +87,8 @@
     </a>
     {% endfor %}
 </div>
+
+{{ pagination(page, total_pages, total_count) }}
 
 {% else %}
 <p style="text-align:center;color:var(--text-secondary);padding:40px 0;">目前沒有案場資料</p>

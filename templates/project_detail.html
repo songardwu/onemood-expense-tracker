@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% block title %}{{ project.case_name }}{% endblock %}
 {% block content %}
 <div style="display:flex;align-items:center;gap:12px;margin-bottom:4px;">
     <h1 style="margin:0;">{{ project.case_name }}</h1>
@@ -76,7 +77,7 @@
     <h4>追加減明細</h4>
     {% if adjustments %}
     <table class="detail-table">
-        <thead><tr><th>日期</th><th>說明</th><th style="text-align:right">金額</th><th></th></tr></thead>
+        <thead><tr><th scope="col">日期</th><th scope="col">說明</th><th scope="col" style="text-align:right">金額</th><th scope="col"></th></tr></thead>
         <tbody>
         {% for a in adjustments %}
         <tr>
@@ -104,9 +105,9 @@
     {% if editable %}
     <form method="POST" action="/projects/{{ project.id }}/adjustments/add" class="inline-add-form">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <input type="date" name="adjust_date" class="small-input">
-        <input type="text" name="description" placeholder="說明" class="small-input" style="width:150px;">
-        <input type="number" name="amount" step="0.01" placeholder="金額" class="small-input" required>
+        <input type="date" name="adjust_date" class="small-input" aria-label="追加減日期">
+        <input type="text" name="description" placeholder="說明" class="small-input" aria-label="追加減說明">
+        <input type="number" name="amount" step="0.01" placeholder="金額" class="small-input" aria-label="追加減金額" required>
         <button type="submit" class="btn-small">新增</button>
     </form>
     {% endif %}
@@ -117,7 +118,7 @@
     <h4>折讓/扣抵明細</h4>
     {% if discounts %}
     <table class="detail-table">
-        <thead><tr><th>項目</th><th style="text-align:right">金額</th><th></th></tr></thead>
+        <thead><tr><th scope="col">項目</th><th scope="col" style="text-align:right">金額</th><th scope="col"></th></tr></thead>
         <tbody>
         {% for d in discounts %}
         <tr>
@@ -144,8 +145,8 @@
     {% if editable %}
     <form method="POST" action="/projects/{{ project.id }}/discounts/add" class="inline-add-form">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <input type="text" name="item_name" placeholder="項目名稱" class="small-input" style="width:150px;" required>
-        <input type="number" name="amount" step="0.01" placeholder="金額" class="small-input" required>
+        <input type="text" name="item_name" placeholder="項目名稱" class="small-input" aria-label="折讓項目" required>
+        <input type="number" name="amount" step="0.01" placeholder="金額" class="small-input" aria-label="折讓金額" required>
         <button type="submit" class="btn-small">新增</button>
     </form>
     {% endif %}
@@ -195,7 +196,7 @@
     <h4>收款明細</h4>
     {% if payments %}
     <table class="detail-table">
-        <thead><tr><th>狀態</th><th>日期</th><th>付款方式</th><th style="text-align:right">金額</th><th></th></tr></thead>
+        <thead><tr><th scope="col">狀態</th><th scope="col">日期</th><th scope="col">付款方式</th><th scope="col" style="text-align:right">金額</th><th scope="col"></th></tr></thead>
         <tbody>
         {% for p in payments %}
         <tr style="{{ 'opacity:0.5;' if not p[4] else '' }}">

@@ -1,6 +1,6 @@
-# TODO — 2026-04-15 Night（CSRF 完成後）
+# TODO — 2026-04-15 Night（CSRF + Session 安全強化完成後）
 
-> 截止時間點：CSRF 防護全面完成，69/69 測試通過，準備推版。
+> 截止時間點：CSRF 防護 + Session Cookie 安全強化完成，69/69 測試通過，已推版。
 
 ---
 
@@ -32,13 +32,10 @@
 
 ## 🟡 P1 — 本週內完成
 
-### 4. Session Cookie 安全強化
-- **現狀**：缺少 `HttpOnly` 和 `SameSite` 設定
-- **修法**（一行搞定）：
-  ```python
-  app.config['SESSION_COOKIE_HTTPONLY'] = True
-  app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
-  ```
+### ~~4. Session Cookie 安全強化~~ ✅ 已完成
+- `SESSION_COOKIE_HTTPONLY = True` — 防 JS 讀取 session cookie
+- `SESSION_COOKIE_SAMESITE = 'Lax'` — 防跨站請求自動帶 cookie
+- 69/69 測試通過，已推版
 
 ### 5. Rate Limiting（登入暴力破解防護）
 - **現狀**：登入無任何頻率限制，可無限嘗試密碼
@@ -125,6 +122,7 @@
 ## 已解除的阻塞
 
 - ~~無 CSRF 防護~~ → flask-wtf CSRFProtect，19 個表單全覆蓋
+- ~~Session Cookie 不安全~~ → HttpOnly + SameSite=Lax 已設定
 - ~~DELETE/UPDATE 路由未回 403~~ → V3 已修復
 - ~~SESSION_COOKIE_SECURE 破壞本地測試~~ → VERCEL 環境變數偵測
 - ~~驗收流程未跑通~~ → 69/69 scenario test 全通過
@@ -134,7 +132,7 @@
 
 ## PM 建議：下一步先做哪一件？
 
-**第一步：Session Cookie 安全強化（P1 #4）。** 兩行設定，零風險，5 分鐘搞定。和 CSRF 合在一起構成完整的 session 安全防護。
+**第一步：CSRF 錯誤處理精準化（P0 #3）。** 小改動，但消除一個潛在的 400 錯誤誤攔截風險。
 
 **第二步：DB Index（P1 #6）。** 五條 CREATE INDEX，預防性維護，愈早做愈好。等資料量上來再加會有 lock table 風險。
 

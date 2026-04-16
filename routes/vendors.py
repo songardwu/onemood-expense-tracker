@@ -21,7 +21,6 @@ def vendor_list():
     """)
     vendors = cur.fetchall()
     cur.close()
-    conn.close()
 
     error = request.args.get('error')
     error_msg = None
@@ -65,10 +64,9 @@ def vendor_create():
         conn.commit()
     except psycopg2.errors.UniqueViolation:
         conn.rollback()
-        cur.close(); conn.close()
+        cur.close()
         return redirect('/vendors?error=duplicate')
     cur.close()
-    conn.close()
     return redirect('/vendors')
 
 
@@ -99,10 +97,9 @@ def vendor_update(vendor_id):
         conn.commit()
     except psycopg2.errors.UniqueViolation:
         conn.rollback()
-        cur.close(); conn.close()
+        cur.close()
         return redirect('/vendors?error=duplicate')
     cur.close()
-    conn.close()
     return redirect('/vendors')
 
 
@@ -114,7 +111,6 @@ def vendor_delete(vendor_id):
     cur.execute("DELETE FROM vendors WHERE id = %s", (vendor_id,))
     conn.commit()
     cur.close()
-    conn.close()
     return redirect('/vendors')
 
 
@@ -202,7 +198,6 @@ def vendor_import():
 
     conn.commit()
     cur.close()
-    conn.close()
 
     session['import_result'] = {
         'added': added, 'updated': updated,
@@ -225,7 +220,6 @@ def vendor_bank():
     """, (name,))
     row = cur.fetchone()
     cur.close()
-    conn.close()
     if row:
         return jsonify({
             'bank_name': row[0], 'bank_code': row[1],

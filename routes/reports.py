@@ -10,6 +10,7 @@ from services.utils import (
     default_remit_date,
     get_conn,
     get_current_user,
+    get_page_info,
     login_required,
 )
 
@@ -50,7 +51,11 @@ def index():
             ORDER BY r.invoice_date DESC, r.created_at DESC
         """, (user['id'],))
 
-    rows = cur.fetchall()
+    all_rows = cur.fetchall()
+
+    # 分頁
+    page, per_page, offset, total_pages = get_page_info(len(all_rows), per_page=50)
+    rows = all_rows[offset:offset + per_page]
 
     # 案場鎖定狀態（管理員用）
     projects = []
@@ -64,11 +69,11 @@ def index():
         projects = [{'project_no': r[0], 'any_locked': r[1], 'cnt': r[2]}
                     for r in cur.fetchall()]
 
-    # 廠商加總 + 匯款方式分計 + 總計
+    # 廠商加總 + 匯款方式分計 + 總計（用全部資料，非分頁後）
     vendor_totals = defaultdict(float)
     method_totals = defaultdict(float)
     grand_total = 0.0
-    for r in rows:
+    for r in all_rows:
         amt = float(r[3]) if r[3] else 0
         vendor_totals[r[1]] += amt
         method_totals[r[16] or '未設定'] += amt
@@ -122,13 +127,14 @@ def index():
             acct_totals[acct] += amt
 
     cur.close()
-    conn.close()
     return render_template('list.html', reports=rows, user=user, projects=projects,
                            vendor_totals=dict(vendor_totals),
                            method_totals=dict(method_totals),
                            grand_total=grand_total,
                            dup_flags={k: list(v) for k, v in dup_flags.items()},
-                           vendor_bank_info=vendor_bank_info)
+                           vendor_bank_info=vendor_bank_info,
+                           page=page, total_pages=total_pages,
+                           total_count=len(all_rows))
 
 
 # =====================
@@ -145,7 +151,6 @@ def new_report():
     cur.execute("SELECT DISTINCT vendor_type FROM reports ORDER BY vendor_type")
     vendor_types = [r[0] for r in cur.fetchall()]
     cur.close()
-    conn.close()
     return render_template('new.html', vendors=vendors, vendor_types=vendor_types,
                            today=date.today().isoformat(), user=user,
                            default_remit_date=default_remit_date().isoformat())
@@ -197,31 +202,23 @@ def submit():
         errors.append('案場名稱為必填')
 
     # 發票號碼重複防呆
+    conn = get_conn()
+    cur = conn.cursor()
     if not errors and invoice_no:
-        conn_chk = get_conn()
-        cur_chk = conn_chk.cursor()
-        cur_chk.execute("SELECT id FROM reports WHERE invoice_no = %s", (invoice_no,))
-        if cur_chk.fetchone():
+        cur.execute("SELECT id FROM reports WHERE invoice_no = %s", (invoice_no,))
+        if cur.fetchone():
             errors.append('此發票號碼已存在，請確認是否重複請款')
-        cur_chk.close()
-        conn_chk.close()
 
     if errors:
-        conn = get_conn()
-        cur = conn.cursor()
         cur.execute("SELECT DISTINCT vendor FROM reports ORDER BY vendor")
         vendors = [r[0] for r in cur.fetchall()]
         cur.execute("SELECT DISTINCT vendor_type FROM reports ORDER BY vendor_type")
         vendor_types = [r[0] for r in cur.fetchall()]
         cur.close()
-        conn.close()
         return render_template('new.html', error='、'.join(errors),
                                vendors=vendors, vendor_types=vendor_types,
                                today=date.today().isoformat(),
                                form=request.form, user=user)
-
-    conn = get_conn()
-    cur = conn.cursor()
     cur.execute("""
         INSERT INTO reports (vendor, vendor_type, amount, category,
                              invoice_no, invoice_date, remit_date, project_no, stage,
@@ -232,7 +229,6 @@ def submit():
           payment_method, user['id']))
     conn.commit()
     cur.close()
-    conn.close()
     return redirect('/')
 
 
@@ -249,19 +245,18 @@ def delete(report_id):
     cur.execute("SELECT user_id, is_locked FROM reports WHERE id = %s", (report_id,))
     row = cur.fetchone()
     if not row:
-        cur.close(); conn.close()
+        cur.close()
         abort(404)
     if row[1]:  # is_locked
-        cur.close(); conn.close()
+        cur.close()
         abort(403)
     if user['role'] == 'designer' and row[0] != user['id']:
-        cur.close(); conn.close()
+        cur.close()
         abort(403)
 
     cur.execute("DELETE FROM reports WHERE id = %s", (report_id,))
     conn.commit()
     cur.close()
-    conn.close()
     return redirect('/')
 
 
@@ -279,14 +274,14 @@ def update_remit_date(report_id):
     cur.execute("SELECT user_id, is_locked FROM reports WHERE id = %s", (report_id,))
     row = cur.fetchone()
     if not row:
-        cur.close(); conn.close()
+        cur.close()
         abort(404)
     if row[1]:  # is_locked
-        cur.close(); conn.close()
+        cur.close()
         abort(403)
 
     if user['role'] == 'designer' and row[0] != user['id']:
-        cur.close(); conn.close()
+        cur.close()
         abort(403)
 
     cur.execute("UPDATE reports SET remit_date = %s WHERE id = %s",
@@ -294,7 +289,6 @@ def update_remit_date(report_id):
 
     conn.commit()
     cur.close()
-    conn.close()
     return redirect('/')
 
 
@@ -311,10 +305,10 @@ def update_report(report_id):
     cur.execute("SELECT is_locked FROM reports WHERE id = %s", (report_id,))
     row = cur.fetchone()
     if not row:
-        cur.close(); conn.close()
+        cur.close()
         abort(404)
     if row[0]:
-        cur.close(); conn.close()
+        cur.close()
         abort(403)
 
     vendor = request.form.get('vendor', '').strip()
@@ -327,21 +321,21 @@ def update_report(report_id):
     payment_method = request.form.get('payment_method', '').strip() or None
 
     if not vendor or not invoice_date or not project_no:
-        cur.close(); conn.close()
+        cur.close()
         return redirect('/')
     if category not in ('案場成本', '管銷', '獎金'):
-        cur.close(); conn.close()
+        cur.close()
         return redirect('/')
     if payment_method and payment_method not in ('現金', '公司轉帳', '個帳轉帳'):
-        cur.close(); conn.close()
+        cur.close()
         return redirect('/')
     try:
         amount = float(amount_str)
         if amount <= 0:
-            cur.close(); conn.close()
+            cur.close()
             return redirect('/')
     except (ValueError, TypeError):
-        cur.close(); conn.close()
+        cur.close()
         return redirect('/')
 
     # 發票防呆（排除自己）
@@ -350,7 +344,7 @@ def update_report(report_id):
             "SELECT id FROM reports WHERE invoice_no = %s AND id != %s",
             (invoice_no, report_id))
         if cur.fetchone():
-            cur.close(); conn.close()
+            cur.close()
             return redirect('/?error=invoice_dup')
 
     cur.execute("""
@@ -364,7 +358,6 @@ def update_report(report_id):
           remit_date, project_no, payment_method, user['id'], report_id))
     conn.commit()
     cur.close()
-    conn.close()
     return redirect('/')
 
 
@@ -387,7 +380,6 @@ def toggle_lock_project():
                 (lock_value, project_no))
     conn.commit()
     cur.close()
-    conn.close()
     return redirect('/')
 
 
@@ -413,7 +405,7 @@ def check_vendor():
     core = core.strip()
 
     if not core:
-        cur.close(); conn.close()
+        cur.close()
         return jsonify({'similar': []})
 
     cur.execute("SELECT DISTINCT vendor FROM reports WHERE vendor != %s", (q,))
@@ -425,7 +417,6 @@ def check_vendor():
     q_account = vendor_accounts.get(q, '')
 
     cur.close()
-    conn.close()
 
     similar = set()
     all_names = set(report_vendors) | set(vendor_accounts.keys())
@@ -475,8 +466,6 @@ def export():
             WHERE r.user_id = %s
             ORDER BY r.vendor_type, r.vendor, r.invoice_date
         """, conn, params=(user['id'],))
-
-    conn.close()
 
     if df.empty:
         return redirect('/')

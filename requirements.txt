@@ -1,4 +1,5 @@
 flask
+flask-limiter
 flask-wtf
 psycopg2-binary
 python-dotenv

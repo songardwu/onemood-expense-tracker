@@ -8,6 +8,7 @@ from services.utils import (
     check_project_access,
     get_conn,
     get_current_user,
+    get_page_info,
     login_required,
     write_audit_log,
 )
@@ -93,28 +94,28 @@ def _get_project_summary(cur, project_id):
             bonus_diff = designer_bonus - Decimal(str(disbursed_amount))
 
     return {
-        'original_contract': float(original_contract),
-        'net_adjustment': float(net_adjustment),
-        'tax_amount': float(tax_amount),
-        'total_discount': float(total_discount),
-        'settlement_price': float(settlement_price),
-        'deposit_amount': float(deposit_amount),
-        'deposit_refund': float(deposit_refund),
-        'deposit_deduction': float(deposit_deduction),
-        'total_received': float(total_received),
-        'remaining_balance': float(remaining_balance),
-        'cost_system': float(cost_system),
-        'cost_non_system': float(cost_non_system),
-        'total_cost': float(total_cost),
-        'profit': float(profit),
-        'profit_share_pct': float(profit_share_pct),
-        'designer_bonus': float(designer_bonus),
-        'company_profit': float(company_profit),
+        'original_contract': original_contract,
+        'net_adjustment': net_adjustment,
+        'tax_amount': tax_amount,
+        'total_discount': total_discount,
+        'settlement_price': settlement_price,
+        'deposit_amount': deposit_amount,
+        'deposit_refund': deposit_refund,
+        'deposit_deduction': deposit_deduction,
+        'total_received': total_received,
+        'remaining_balance': remaining_balance,
+        'cost_system': cost_system,
+        'cost_non_system': cost_non_system,
+        'total_cost': total_cost,
+        'profit': profit,
+        'profit_share_pct': profit_share_pct,
+        'designer_bonus': designer_bonus,
+        'company_profit': company_profit,
         'bonus_checked': p['bonus_checked'],
         'bonus_disbursed': p['bonus_disbursed'],
         'bonus_report_id': p['bonus_report_id'],
-        'disbursed_amount': float(disbursed_amount) if disbursed_amount is not None else None,
-        'bonus_diff': float(bonus_diff) if bonus_diff is not None else None,
+        'disbursed_amount': disbursed_amount,
+        'bonus_diff': bonus_diff,
     }
 
 
@@ -150,10 +151,13 @@ def project_list():
             ORDER BY p.created_at DESC
         """, (user['id'],))
 
-    projects = cur.fetchall()
+    all_projects = cur.fetchall()
+    page, per_page, offset, total_pages = get_page_info(len(all_projects), per_page=50)
+    projects = all_projects[offset:offset + per_page]
     cur.close()
-    conn.close()
-    return render_template('projects.html', projects=projects, user=user)
+    return render_template('projects.html', projects=projects, user=user,
+                           page=page, total_pages=total_pages,
+                           total_count=len(all_projects))
 
 
 @bp.route('/projects/new')
@@ -167,7 +171,6 @@ def new_project():
         cur.execute("SELECT id, display_name FROM users WHERE is_active = TRUE ORDER BY display_name")
         designers = cur.fetchall()
     cur.close()
-    conn.close()
     return render_template('project_form.html', user=user, project=None,
                            designers=designers, today=date.today().isoformat())
 
@@ -207,7 +210,6 @@ def create_project():
     project_id = cur.fetchone()[0]
     conn.commit()
     cur.close()
-    conn.close()
     return redirect(f'/projects/{project_id}')
 
 
@@ -225,14 +227,14 @@ def project_detail(project_id):
     """, (project_id,))
     project = cur.fetchone()
     if not project:
-        cur.close(); conn.close()
+        cur.close()
         abort(404)
 
     col_names = [desc[0] for desc in cur.description]
     proj = dict(zip(col_names, project))
 
     if user['role'] != 'admin' and proj['designer_id'] != user['id']:
-        cur.close(); conn.close()
+        cur.close()
         abort(403)
 
     # 施工天數
@@ -270,7 +272,6 @@ def project_detail(project_id):
     summary = _get_project_summary(cur, project_id)
 
     cur.close()
-    conn.close()
     return render_template('project_detail.html', project=proj, user=user,
                            construction_days=construction_days,
                            adjustments=adjustments, discounts=discounts,
@@ -285,14 +286,13 @@ def edit_project(project_id):
     cur = conn.cursor()
     proj = check_project_access(cur, project_id, user, require_editable=True)
     if not proj:
-        cur.close(); conn.close()
+        cur.close()
         abort(403)
     designers = []
     if user['role'] == 'admin':
         cur.execute("SELECT id, display_name FROM users WHERE is_active = TRUE ORDER BY display_name")
         designers = cur.fetchall()
     cur.close()
-    conn.close()
     return render_template('project_form.html', user=user, project=proj,
                            designers=designers, today=date.today().isoformat())
 
@@ -305,12 +305,12 @@ def update_project(project_id):
     cur = conn.cursor()
     proj = check_project_access(cur, project_id, user, require_editable=True)
     if not proj:
-        cur.close(); conn.close()
+        cur.close()
         abort(403)
 
     case_name = request.form.get('case_name', '').strip()
     if not case_name:
-        cur.close(); conn.close()
+        cur.close()
         return redirect(f'/projects/{project_id}/edit')
 
     fields = {
@@ -332,7 +332,6 @@ def update_project(project_id):
                 list(fields.values()) + [project_id])
     conn.commit()
     cur.close()
-    conn.close()
     return redirect(f'/projects/{project_id}')
 
 
@@ -354,15 +353,15 @@ def update_status(project_id):
     cur.execute("SELECT status, designer_id FROM projects WHERE id = %s", (project_id,))
     row = cur.fetchone()
     if not row:
-        cur.close(); conn.close()
+        cur.close()
         abort(404)
 
     current_status, designer_id = row
     if current_status == 'closed' and user['role'] != 'admin':
-        cur.close(); conn.close()
+        cur.close()
         abort(403)
     if user['role'] != 'admin' and designer_id != user['id']:
-        cur.close(); conn.close()
+        cur.close()
         abort(403)
 
     cur.execute("UPDATE projects SET status = %s, updated_at = NOW() WHERE id = %s",
@@ -371,7 +370,6 @@ def update_status(project_id):
                     current_status, new_status, user['id'], reason or None)
     conn.commit()
     cur.close()
-    conn.close()
     return redirect(f'/projects/{project_id}')
 
 
@@ -387,7 +385,7 @@ def update_revenue(project_id):
     cur = conn.cursor()
     proj = check_project_access(cur, project_id, user)
     if not proj:
-        cur.close(); conn.close()
+        cur.close()
         abort(403)
 
     fields = {
@@ -412,7 +410,6 @@ def update_revenue(project_id):
           fields['tax_amount'], project_id))
     conn.commit()
     cur.close()
-    conn.close()
     return redirect(f'/projects/{project_id}')
 
 
@@ -424,7 +421,7 @@ def update_deposit(project_id):
     cur = conn.cursor()
     proj = check_project_access(cur, project_id, user)
     if not proj:
-        cur.close(); conn.close()
+        cur.close()
         abort(403)
 
     try:
@@ -453,7 +450,6 @@ def update_deposit(project_id):
     """, (dep_amt, dep_ref, dep_status, project_id))
     conn.commit()
     cur.close()
-    conn.close()
     return redirect(f'/projects/{project_id}')
 
 
@@ -466,7 +462,7 @@ def add_adjustment(project_id):
     cur = conn.cursor()
     proj = check_project_access(cur, project_id, user)
     if not proj:
-        cur.close(); conn.close()
+        cur.close()
         abort(403)
 
     adjust_date = request.form.get('adjust_date', '').strip() or None
@@ -474,7 +470,7 @@ def add_adjustment(project_id):
     try:
         amount = Decimal(request.form.get('amount', '0').strip())
     except Exception:
-        cur.close(); conn.close()
+        cur.close()
         return redirect(f'/projects/{project_id}')
 
     cur.execute("""
@@ -485,7 +481,6 @@ def add_adjustment(project_id):
     write_audit_log(cur, 'project_adjustments', aid, 'amount', None, amount, user['id'])
     conn.commit()
     cur.close()
-    conn.close()
     return redirect(f'/projects/{project_id}')
 
 
@@ -497,20 +492,19 @@ def delete_adjustment(project_id, aid):
     cur = conn.cursor()
     proj = check_project_access(cur, project_id, user)
     if not proj:
-        cur.close(); conn.close()
+        cur.close()
         abort(403)
 
     cur.execute("SELECT amount FROM project_adjustments WHERE id = %s AND project_id = %s", (aid, project_id))
     row = cur.fetchone()
     if not row:
-        cur.close(); conn.close()
+        cur.close()
         abort(404)
 
     write_audit_log(cur, 'project_adjustments', aid, 'amount', row[0], 'DELETED', user['id'])
     cur.execute("DELETE FROM project_adjustments WHERE id = %s", (aid,))
     conn.commit()
     cur.close()
-    conn.close()
     return redirect(f'/projects/{project_id}')
 
 
@@ -523,18 +517,18 @@ def add_discount(project_id):
     cur = conn.cursor()
     proj = check_project_access(cur, project_id, user)
     if not proj:
-        cur.close(); conn.close()
+        cur.close()
         abort(403)
 
     item_name = request.form.get('item_name', '').strip()
     try:
         amount = Decimal(request.form.get('amount', '0').strip())
     except Exception:
-        cur.close(); conn.close()
+        cur.close()
         return redirect(f'/projects/{project_id}')
 
     if not item_name:
-        cur.close(); conn.close()
+        cur.close()
         return redirect(f'/projects/{project_id}')
 
     cur.execute("""
@@ -545,7 +539,6 @@ def add_discount(project_id):
     write_audit_log(cur, 'project_discounts', did, 'amount', None, amount, user['id'])
     conn.commit()
     cur.close()
-    conn.close()
     return redirect(f'/projects/{project_id}')
 
 
@@ -557,20 +550,19 @@ def delete_discount(project_id, did):
     cur = conn.cursor()
     proj = check_project_access(cur, project_id, user)
     if not proj:
-        cur.close(); conn.close()
+        cur.close()
         abort(403)
 
     cur.execute("SELECT amount FROM project_discounts WHERE id = %s AND project_id = %s", (did, project_id))
     row = cur.fetchone()
     if not row:
-        cur.close(); conn.close()
+        cur.close()
         abort(404)
 
     write_audit_log(cur, 'project_discounts', did, 'amount', row[0], 'DELETED', user['id'])
     cur.execute("DELETE FROM project_discounts WHERE id = %s", (did,))
     conn.commit()
     cur.close()
-    conn.close()
     return redirect(f'/projects/{project_id}')
 
 
@@ -583,7 +575,7 @@ def add_payment(project_id):
     cur = conn.cursor()
     proj = check_project_access(cur, project_id, user)
     if not proj:
-        cur.close(); conn.close()
+        cur.close()
         abort(403)
 
     payment_date = request.form.get('payment_date', '').strip()
@@ -591,11 +583,11 @@ def add_payment(project_id):
     try:
         amount = Decimal(request.form.get('amount', '0').strip())
     except Exception:
-        cur.close(); conn.close()
+        cur.close()
         return redirect(f'/projects/{project_id}')
 
     if not payment_date or payment_method not in ('現金', '匯款', '其他'):
-        cur.close(); conn.close()
+        cur.close()
         return redirect(f'/projects/{project_id}')
 
     cur.execute("""
@@ -606,7 +598,6 @@ def add_payment(project_id):
     write_audit_log(cur, 'project_payments', pid, 'amount', None, amount, user['id'])
     conn.commit()
     cur.close()
-    conn.close()
     return redirect(f'/projects/{project_id}')
 
 
@@ -618,20 +609,19 @@ def delete_payment(project_id, pid):
     cur = conn.cursor()
     proj = check_project_access(cur, project_id, user)
     if not proj:
-        cur.close(); conn.close()
+        cur.close()
         abort(403)
 
     cur.execute("SELECT amount FROM project_payments WHERE id = %s AND project_id = %s", (pid, project_id))
     row = cur.fetchone()
     if not row:
-        cur.close(); conn.close()
+        cur.close()
         abort(404)
 
     write_audit_log(cur, 'project_payments', pid, 'amount', row[0], 'DELETED', user['id'])
     cur.execute("DELETE FROM project_payments WHERE id = %s", (pid,))
     conn.commit()
     cur.close()
-    conn.close()
     return redirect(f'/projects/{project_id}')
 
 
@@ -645,7 +635,7 @@ def confirm_payment(project_id, pid):
     cur.execute("SELECT is_confirmed FROM project_payments WHERE id = %s AND project_id = %s", (pid, project_id))
     row = cur.fetchone()
     if not row:
-        cur.close(); conn.close()
+        cur.close()
         abort(404)
 
     cur.execute("""
@@ -656,7 +646,6 @@ def confirm_payment(project_id, pid):
     write_audit_log(cur, 'project_payments', pid, 'is_confirmed', False, True, user['id'])
     conn.commit()
     cur.close()
-    conn.close()
     return redirect(f'/projects/{project_id}')
 
 
@@ -672,36 +661,39 @@ def update_costs(project_id):
     cur = conn.cursor()
     proj = check_project_access(cur, project_id, user)
     if not proj:
-        cur.close(); conn.close()
+        cur.close()
         abort(403)
 
     cur.execute("SELECT id FROM cost_categories WHERE is_active = TRUE")
     cat_ids = [r[0] for r in cur.fetchall()]
 
-    for cat_id in cat_ids:
-        try:
-            new_amount = Decimal(request.form.get(f'cost_{cat_id}', '0').strip() or '0')
-        except Exception:
-            new_amount = Decimal('0')
+    try:
+        for cat_id in cat_ids:
+            try:
+                new_amount = Decimal(request.form.get(f'cost_{cat_id}', '0').strip() or '0')
+            except Exception:
+                new_amount = Decimal('0')
 
-        cur.execute("SELECT amount FROM project_costs WHERE project_id = %s AND category_id = %s",
-                    (project_id, cat_id))
-        existing = cur.fetchone()
-        old_amount = existing[0] if existing else Decimal('0')
+            cur.execute("SELECT amount FROM project_costs WHERE project_id = %s AND category_id = %s",
+                        (project_id, cat_id))
+            existing = cur.fetchone()
+            old_amount = existing[0] if existing else Decimal('0')
 
-        if new_amount != old_amount:
-            if existing:
-                cur.execute("UPDATE project_costs SET amount = %s WHERE project_id = %s AND category_id = %s",
-                            (new_amount, project_id, cat_id))
-            else:
-                cur.execute("INSERT INTO project_costs (project_id, category_id, amount) VALUES (%s, %s, %s)",
-                            (project_id, cat_id, new_amount))
-            write_audit_log(cur, 'project_costs', project_id, f'category_{cat_id}',
-                            old_amount, new_amount, user['id'])
+            if new_amount != old_amount:
+                if existing:
+                    cur.execute("UPDATE project_costs SET amount = %s WHERE project_id = %s AND category_id = %s",
+                                (new_amount, project_id, cat_id))
+                else:
+                    cur.execute("INSERT INTO project_costs (project_id, category_id, amount) VALUES (%s, %s, %s)",
+                                (project_id, cat_id, new_amount))
+                write_audit_log(cur, 'project_costs', project_id, f'category_{cat_id}',
+                                old_amount, new_amount, user['id'])
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
 
-    conn.commit()
     cur.close()
-    conn.close()
     return redirect(f'/projects/{project_id}')
 
 
@@ -715,15 +707,14 @@ def api_project_summary(project_id):
     cur.execute("SELECT designer_id FROM projects WHERE id = %s", (project_id,))
     row = cur.fetchone()
     if not row:
-        cur.close(); conn.close()
+        cur.close()
         abort(404)
     if user['role'] != 'admin' and row[0] != user['id']:
-        cur.close(); conn.close()
+        cur.close()
         abort(403)
 
     summary = _get_project_summary(cur, project_id)
     cur.close()
-    conn.close()
     return jsonify(summary)
 
 
@@ -737,7 +728,6 @@ def cost_category_list():
     cur.execute("SELECT id, name, cost_type, sort_order, is_active FROM cost_categories ORDER BY cost_type, sort_order")
     categories = cur.fetchall()
     cur.close()
-    conn.close()
     return render_template('cost_categories.html', categories=categories, user=user)
 
 
@@ -757,7 +747,6 @@ def cost_category_create():
                 (name, cost_type, next_order))
     conn.commit()
     cur.close()
-    conn.close()
     return redirect('/cost-categories')
 
 
@@ -773,7 +762,6 @@ def cost_category_update(cid):
     cur.execute("UPDATE cost_categories SET name = %s WHERE id = %s", (name, cid))
     conn.commit()
     cur.close()
-    conn.close()
     return redirect('/cost-categories')
 
 
@@ -785,7 +773,6 @@ def cost_category_toggle(cid):
     cur.execute("UPDATE cost_categories SET is_active = NOT is_active WHERE id = %s", (cid,))
     conn.commit()
     cur.close()
-    conn.close()
     return redirect('/cost-categories')
 
 
@@ -803,7 +790,7 @@ def update_settlement(project_id):
     cur.execute("SELECT profit_share_pct FROM projects WHERE id = %s", (project_id,))
     row = cur.fetchone()
     if not row:
-        cur.close(); conn.close()
+        cur.close()
         abort(404)
 
     try:
@@ -819,7 +806,6 @@ def update_settlement(project_id):
                 (new_pct, project_id))
     conn.commit()
     cur.close()
-    conn.close()
     return redirect(f'/projects/{project_id}')
 
 
@@ -833,7 +819,7 @@ def bonus_check(project_id):
     cur.execute("SELECT bonus_checked FROM projects WHERE id = %s", (project_id,))
     row = cur.fetchone()
     if not row:
-        cur.close(); conn.close()
+        cur.close()
         abort(404)
 
     new_val = not row[0]
@@ -842,7 +828,6 @@ def bonus_check(project_id):
     write_audit_log(cur, 'projects', project_id, 'bonus_checked', row[0], new_val, user['id'])
     conn.commit()
     cur.close()
-    conn.close()
     return redirect(f'/projects/{project_id}')
 
 
@@ -856,10 +841,10 @@ def bonus_disburse(project_id):
     cur.execute("SELECT bonus_checked, bonus_disbursed, designer_id FROM projects WHERE id = %s", (project_id,))
     row = cur.fetchone()
     if not row:
-        cur.close(); conn.close()
+        cur.close()
         abort(404)
     if not row[0] or row[1]:  # 未核對 or 已出帳
-        cur.close(); conn.close()
+        cur.close()
         return redirect(f'/projects/{project_id}')
 
     summary = _get_project_summary(cur, project_id)
@@ -879,7 +864,7 @@ def bonus_disburse(project_id):
                              invoice_date, project_no, payment_method, user_id)
         VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
         RETURNING id
-    """, (designer_name, 'designer_bonus', bonus_amount, '設計師獎金',
+    """, (designer_name, 'designer_bonus', bonus_amount, '獎金',
           date.today().isoformat(), case_name, '公司轉帳', user['id']))
     report_id = cur.fetchone()[0]
 
@@ -890,7 +875,6 @@ def bonus_disburse(project_id):
     write_audit_log(cur, 'projects', project_id, 'bonus_disbursed', False, True, user['id'])
     conn.commit()
     cur.close()
-    conn.close()
     return redirect(f'/projects/{project_id}')
 
 
@@ -904,10 +888,10 @@ def project_logs(project_id):
     cur.execute("SELECT designer_id FROM projects WHERE id = %s", (project_id,))
     row = cur.fetchone()
     if not row:
-        cur.close(); conn.close()
+        cur.close()
         abort(404)
     if user['role'] != 'admin' and row[0] != user['id']:
-        cur.close(); conn.close()
+        cur.close()
         abort(403)
 
     cur.execute("""
@@ -926,12 +910,15 @@ def project_logs(project_id):
            OR (al.table_name = 'project_costs' AND al.record_id = %s)
         ORDER BY al.changed_at DESC
     """, (project_id, project_id, project_id, project_id, project_id))
-    logs = cur.fetchall()
+    all_logs = cur.fetchall()
+    page, per_page, offset, total_pages = get_page_info(len(all_logs), per_page=50)
+    logs = all_logs[offset:offset + per_page]
 
     cur.execute("SELECT case_name FROM projects WHERE id = %s", (project_id,))
     case_name = cur.fetchone()[0]
 
     cur.close()
-    conn.close()
     return render_template('project_logs.html', logs=logs, user=user,
-                           project_id=project_id, case_name=case_name)
+                           project_id=project_id, case_name=case_name,
+                           page=page, total_pages=total_pages,
+                           total_count=len(all_logs))

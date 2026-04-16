@@ -1,4 +1,6 @@
 {% extends "base.html" %}
+{% from "pagination.html" import render as pagination %}
+{% block title %}修改紀錄 — {{ case_name }}{% endblock %}
 {% block content %}
 <h1>修改紀錄 — {{ case_name }}</h1>
 
@@ -9,13 +11,13 @@
 <table class="desktop-table">
     <thead>
         <tr>
-            <th>時間</th>
-            <th>操作人</th>
-            <th>資料表</th>
-            <th>欄位</th>
-            <th>舊值</th>
-            <th>新值</th>
-            <th>原因</th>
+            <th scope="col">時間</th>
+            <th scope="col">操作人</th>
+            <th scope="col">資料表</th>
+            <th scope="col">欄位</th>
+            <th scope="col">舊值</th>
+            <th scope="col">新值</th>
+            <th scope="col">原因</th>
         </tr>
     </thead>
     <tbody>
@@ -49,6 +51,8 @@
     </div>
     {% endfor %}
 </div>
+{{ pagination(page, total_pages, total_count) }}
+
 {% else %}
 <p style="text-align:center;color:var(--text-secondary);padding:40px 0;">尚無修改紀錄</p>
 {% endif %}

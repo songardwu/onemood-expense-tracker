@@ -1,4 +1,6 @@
 {% extends "base.html" %}
+{% from "pagination.html" import render as pagination %}
+{% block title %}出帳管理{% endblock %}
 {% block content %}
 <h1>出帳管理</h1>
 
@@ -44,17 +46,17 @@
 <table class="desktop-table">
     <thead>
         <tr>
-            {% if user.role == 'admin' %}<th>提報人</th>{% endif %}
-            <th>請款名稱</th>
-            <th>請款金額</th>
-            <th>分類</th>
-            <th>案場</th>
-            <th>發票日期</th>
-            <th>發票編號</th>
-            <th>匯款日期</th>
-            <th>匯款方式</th>
-            {% if user.role == 'admin' %}<th>修改紀錄</th>{% endif %}
-            <th></th>
+            {% if user.role == 'admin' %}<th scope="col">提報人</th>{% endif %}
+            <th scope="col">請款名稱</th>
+            <th scope="col">請款金額</th>
+            <th scope="col">分類</th>
+            <th scope="col">案場</th>
+            <th scope="col">發票日期</th>
+            <th scope="col">發票編號</th>
+            <th scope="col">匯款日期</th>
+            <th scope="col">匯款方式</th>
+            {% if user.role == 'admin' %}<th scope="col">修改紀錄</th>{% endif %}
+            <th scope="col"></th>
         </tr>
     </thead>
     <tbody>
@@ -312,6 +314,8 @@
 {% endif %}
 
 </div> <!-- /.bento-grid -->
+
+{{ pagination(page, total_pages, total_count) }}
 
 {% else %}
 <div class="empty-state">

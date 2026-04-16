@@ -19,7 +19,6 @@ def user_list():
     """)
     users = cur.fetchall()
     cur.close()
-    conn.close()
     return render_template('users.html', users=users, user=user)
 
 
@@ -31,7 +30,7 @@ def user_create():
     password = request.form.get('password', '').strip()
     role = request.form.get('role', 'designer')
 
-    if not username or not display_name or not password:
+    if not username or not display_name or not password or len(password) < 6:
         return redirect('/users')
     if role not in ('designer', 'admin'):
         role = 'designer'
@@ -48,7 +47,6 @@ def user_create():
     except psycopg2.errors.UniqueViolation:
         conn.rollback()
     cur.close()
-    conn.close()
     return redirect('/users')
 
 
@@ -60,7 +58,6 @@ def user_toggle(uid):
     cur.execute("UPDATE users SET is_active = NOT is_active WHERE id = %s", (uid,))
     conn.commit()
     cur.close()
-    conn.close()
     return redirect('/users')
 
 
@@ -68,7 +65,7 @@ def user_toggle(uid):
 @admin_required
 def user_reset_password(uid):
     new_password = request.form.get('new_password', '').strip()
-    if not new_password:
+    if not new_password or len(new_password) < 6:
         return redirect('/users')
     pw_hash = generate_password_hash(new_password)
     conn = get_conn()
@@ -76,5 +73,4 @@ def user_reset_password(uid):
     cur.execute("UPDATE users SET password_hash = %s WHERE id = %s", (pw_hash, uid))
     conn.commit()
     cur.close()
-    conn.close()
     return redirect('/users')
