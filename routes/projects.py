@@ -1,7 +1,16 @@
 from datetime import date
-from flask import Blueprint, abort, redirect, render_template, request
+from decimal import Decimal
 
-from services.utils import admin_required, get_conn, get_current_user, login_required
+from flask import Blueprint, abort, jsonify, redirect, render_template, request
+
+from services.utils import (
+    admin_required,
+    check_project_access,
+    get_conn,
+    get_current_user,
+    login_required,
+    write_audit_log,
+)
 
 bp = Blueprint('projects', __name__)
 
@@ -21,9 +30,98 @@ def _generate_case_id(cur):
     return f'{prefix}001'
 
 
-# =====================
-# GET /projects — 案場列表
-# =====================
+def _get_project_summary(cur, project_id):
+    """計算案場損益摘要"""
+    cur.execute("SELECT * FROM projects WHERE id = %s", (project_id,))
+    row = cur.fetchone()
+    if not row:
+        return None
+    col_names = [desc[0] for desc in cur.description]
+    p = dict(zip(col_names, row))
+
+    original_contract = (p['system_furniture_amount'] or 0) + (p['non_system_furniture_amount'] or 0)
+
+    cur.execute("SELECT COALESCE(SUM(amount), 0) FROM project_adjustments WHERE project_id = %s", (project_id,))
+    net_adjustment = cur.fetchone()[0]
+
+    cur.execute("SELECT COALESCE(SUM(amount), 0) FROM project_discounts WHERE project_id = %s", (project_id,))
+    total_discount = cur.fetchone()[0]
+
+    tax_amount = p['tax_amount'] or 0
+    settlement_price = original_contract + net_adjustment + tax_amount - total_discount
+
+    deposit_amount = p['deposit_amount'] or 0
+    deposit_refund = p['deposit_refund'] or 0
+    deposit_deduction = deposit_amount - deposit_refund
+
+    cur.execute("""
+        SELECT COALESCE(SUM(amount), 0) FROM project_payments
+        WHERE project_id = %s AND is_confirmed = TRUE
+    """, (project_id,))
+    total_received = cur.fetchone()[0]
+    remaining_balance = settlement_price - total_received
+
+    cur.execute("""
+        SELECT COALESCE(SUM(pc.amount), 0) FROM project_costs pc
+        JOIN cost_categories cc ON pc.category_id = cc.id
+        WHERE pc.project_id = %s AND cc.cost_type = 'system'
+    """, (project_id,))
+    cost_system = cur.fetchone()[0]
+
+    cur.execute("""
+        SELECT COALESCE(SUM(pc.amount), 0) FROM project_costs pc
+        JOIN cost_categories cc ON pc.category_id = cc.id
+        WHERE pc.project_id = %s AND cc.cost_type = 'non_system'
+    """, (project_id,))
+    cost_non_system = cur.fetchone()[0]
+
+    total_cost = cost_system + cost_non_system
+    profit = (original_contract + net_adjustment + total_discount + deposit_deduction) - total_cost
+
+    profit_share_pct = p['profit_share_pct'] or 0
+    designer_bonus = profit * profit_share_pct / 100
+    company_profit = profit - designer_bonus
+
+    # 出帳差異
+    disbursed_amount = None
+    bonus_diff = None
+    if p['bonus_disbursed'] and p['bonus_report_id']:
+        cur.execute("SELECT amount FROM reports WHERE id = %s", (p['bonus_report_id'],))
+        rpt = cur.fetchone()
+        if rpt:
+            disbursed_amount = rpt[0]
+            bonus_diff = designer_bonus - Decimal(str(disbursed_amount))
+
+    return {
+        'original_contract': float(original_contract),
+        'net_adjustment': float(net_adjustment),
+        'tax_amount': float(tax_amount),
+        'total_discount': float(total_discount),
+        'settlement_price': float(settlement_price),
+        'deposit_amount': float(deposit_amount),
+        'deposit_refund': float(deposit_refund),
+        'deposit_deduction': float(deposit_deduction),
+        'total_received': float(total_received),
+        'remaining_balance': float(remaining_balance),
+        'cost_system': float(cost_system),
+        'cost_non_system': float(cost_non_system),
+        'total_cost': float(total_cost),
+        'profit': float(profit),
+        'profit_share_pct': float(profit_share_pct),
+        'designer_bonus': float(designer_bonus),
+        'company_profit': float(company_profit),
+        'bonus_checked': p['bonus_checked'],
+        'bonus_disbursed': p['bonus_disbursed'],
+        'bonus_report_id': p['bonus_report_id'],
+        'disbursed_amount': float(disbursed_amount) if disbursed_amount is not None else None,
+        'bonus_diff': float(bonus_diff) if bonus_diff is not None else None,
+    }
+
+
+# =====================================================
+# Phase 1: 案場基本資料 CRUD
+# =====================================================
+
 @bp.route('/projects')
 @login_required
 def project_list():
@@ -58,38 +156,30 @@ def project_list():
     return render_template('projects.html', projects=projects, user=user)
 
 
-# =====================
-# GET /projects/new — 新增案場表單
-# =====================
 @bp.route('/projects/new')
 @login_required
 def new_project():
     user = get_current_user()
     conn = get_conn()
     cur = conn.cursor()
-
     designers = []
     if user['role'] == 'admin':
-        cur.execute("""
-            SELECT id, display_name FROM users
-            WHERE is_active = TRUE ORDER BY display_name
-        """)
+        cur.execute("SELECT id, display_name FROM users WHERE is_active = TRUE ORDER BY display_name")
         designers = cur.fetchall()
-
     cur.close()
     conn.close()
     return render_template('project_form.html', user=user, project=None,
                            designers=designers, today=date.today().isoformat())
 
 
-# =====================
-# POST /projects/create — 建立案場
-# =====================
 @bp.route('/projects/create', methods=['POST'])
 @login_required
 def create_project():
     user = get_current_user()
     case_name = request.form.get('case_name', '').strip()
+    if not case_name:
+        return redirect('/projects/new')
+
     owner_name = request.form.get('owner_name', '').strip()
     owner_phone = request.form.get('owner_phone', '').strip()
     owner_address = request.form.get('owner_address', '').strip()
@@ -103,13 +193,9 @@ def create_project():
     else:
         designer_id = user['id']
 
-    if not case_name:
-        return redirect('/projects/new')
-
     conn = get_conn()
     cur = conn.cursor()
     case_id = _generate_case_id(cur)
-
     cur.execute("""
         INSERT INTO projects (case_id, case_name, owner_name, owner_phone,
                               owner_address, contract_date,
@@ -118,7 +204,6 @@ def create_project():
         RETURNING id
     """, (case_id, case_name, owner_name, owner_phone, owner_address,
           contract_date, construction_start, construction_end, designer_id))
-
     project_id = cur.fetchone()[0]
     conn.commit()
     cur.close()
@@ -126,9 +211,6 @@ def create_project():
     return redirect(f'/projects/{project_id}')
 
 
-# =====================
-# GET /projects/<id> — 案場詳情
-# =====================
 @bp.route('/projects/<int:project_id>')
 @login_required
 def project_detail(project_id):
@@ -138,17 +220,14 @@ def project_detail(project_id):
 
     cur.execute("""
         SELECT p.*, u.display_name as designer_name
-        FROM projects p
-        JOIN users u ON p.designer_id = u.id
+        FROM projects p JOIN users u ON p.designer_id = u.id
         WHERE p.id = %s
     """, (project_id,))
     project = cur.fetchone()
-
     if not project:
         cur.close(); conn.close()
         abort(404)
 
-    # 權限檢查：設計師只能看自己的案場
     col_names = [desc[0] for desc in cur.description]
     proj = dict(zip(col_names, project))
 
@@ -156,162 +235,703 @@ def project_detail(project_id):
         cur.close(); conn.close()
         abort(403)
 
-    # 計算施工天數
+    # 施工天數
     construction_days = None
     if proj['construction_start'] and proj['construction_end']:
-        delta = proj['construction_end'] - proj['construction_start']
-        construction_days = delta.days + 1
+        construction_days = (proj['construction_end'] - proj['construction_start']).days + 1
+
+    # Phase 2: 追加減、折讓、收款
+    cur.execute("SELECT id, adjust_date, description, amount FROM project_adjustments WHERE project_id = %s ORDER BY adjust_date, id", (project_id,))
+    adjustments = cur.fetchall()
+
+    cur.execute("SELECT id, item_name, amount FROM project_discounts WHERE project_id = %s ORDER BY id", (project_id,))
+    discounts = cur.fetchall()
+
+    cur.execute("""
+        SELECT pp.id, pp.payment_date, pp.payment_method, pp.amount,
+               pp.is_confirmed, u2.display_name as confirmed_by_name, pp.confirmed_at
+        FROM project_payments pp
+        LEFT JOIN users u2 ON pp.confirmed_by = u2.id
+        WHERE pp.project_id = %s ORDER BY pp.payment_date, pp.id
+    """, (project_id,))
+    payments = cur.fetchall()
+
+    # Phase 3: 成本科目
+    cur.execute("""
+        SELECT cc.id, cc.name, cc.cost_type, COALESCE(pc.amount, 0) as amount
+        FROM cost_categories cc
+        LEFT JOIN project_costs pc ON cc.id = pc.category_id AND pc.project_id = %s
+        WHERE cc.is_active = TRUE
+        ORDER BY cc.cost_type, cc.sort_order
+    """, (project_id,))
+    costs = cur.fetchall()
+
+    # 損益摘要
+    summary = _get_project_summary(cur, project_id)
 
     cur.close()
     conn.close()
     return render_template('project_detail.html', project=proj, user=user,
-                           construction_days=construction_days)
+                           construction_days=construction_days,
+                           adjustments=adjustments, discounts=discounts,
+                           payments=payments, costs=costs, summary=summary)
 
 
-# =====================
-# GET /projects/<id>/edit — 編輯案場表單
-# =====================
 @bp.route('/projects/<int:project_id>/edit')
 @login_required
 def edit_project(project_id):
     user = get_current_user()
     conn = get_conn()
     cur = conn.cursor()
-
-    cur.execute("SELECT * FROM projects WHERE id = %s", (project_id,))
-    project = cur.fetchone()
-    if not project:
-        cur.close(); conn.close()
-        abort(404)
-
-    col_names = [desc[0] for desc in cur.description]
-    proj = dict(zip(col_names, project))
-
-    # 權限：設計師只能編輯自己的、且未結案的
-    if user['role'] != 'admin' and proj['designer_id'] != user['id']:
+    proj = check_project_access(cur, project_id, user, require_editable=True)
+    if not proj:
         cur.close(); conn.close()
         abort(403)
-    if proj['status'] == 'closed' and user['role'] != 'admin':
-        cur.close(); conn.close()
-        abort(403)
-
     designers = []
     if user['role'] == 'admin':
-        cur.execute("""
-            SELECT id, display_name FROM users
-            WHERE is_active = TRUE ORDER BY display_name
-        """)
+        cur.execute("SELECT id, display_name FROM users WHERE is_active = TRUE ORDER BY display_name")
         designers = cur.fetchall()
-
     cur.close()
     conn.close()
     return render_template('project_form.html', user=user, project=proj,
                            designers=designers, today=date.today().isoformat())
 
 
-# =====================
-# POST /projects/<id>/update — 更新案場
-# =====================
 @bp.route('/projects/<int:project_id>/update', methods=['POST'])
 @login_required
 def update_project(project_id):
     user = get_current_user()
     conn = get_conn()
     cur = conn.cursor()
-
-    cur.execute("SELECT designer_id, status FROM projects WHERE id = %s", (project_id,))
-    row = cur.fetchone()
-    if not row:
-        cur.close(); conn.close()
-        abort(404)
-
-    # 權限檢查
-    if user['role'] != 'admin' and row[0] != user['id']:
-        cur.close(); conn.close()
-        abort(403)
-    if row[1] == 'closed' and user['role'] != 'admin':
+    proj = check_project_access(cur, project_id, user, require_editable=True)
+    if not proj:
         cur.close(); conn.close()
         abort(403)
 
     case_name = request.form.get('case_name', '').strip()
-    owner_name = request.form.get('owner_name', '').strip()
-    owner_phone = request.form.get('owner_phone', '').strip()
-    owner_address = request.form.get('owner_address', '').strip()
-    contract_date = request.form.get('contract_date', '').strip() or None
-    construction_start = request.form.get('construction_start', '').strip() or None
-    construction_end = request.form.get('construction_end', '').strip() or None
-
     if not case_name:
         cur.close(); conn.close()
         return redirect(f'/projects/{project_id}/edit')
 
-    update_fields = {
+    fields = {
         'case_name': case_name,
-        'owner_name': owner_name,
-        'owner_phone': owner_phone,
-        'owner_address': owner_address,
-        'contract_date': contract_date,
-        'construction_start': construction_start,
-        'construction_end': construction_end,
+        'owner_name': request.form.get('owner_name', '').strip(),
+        'owner_phone': request.form.get('owner_phone', '').strip(),
+        'owner_address': request.form.get('owner_address', '').strip(),
+        'contract_date': request.form.get('contract_date', '').strip() or None,
+        'construction_start': request.form.get('construction_start', '').strip() or None,
+        'construction_end': request.form.get('construction_end', '').strip() or None,
     }
-
     if user['role'] == 'admin':
-        designer_id = request.form.get('designer_id', '').strip()
-        if designer_id:
-            update_fields['designer_id'] = int(designer_id)
+        did = request.form.get('designer_id', '').strip()
+        if did:
+            fields['designer_id'] = int(did)
 
-    set_clause = ', '.join(f"{k} = %s" for k in update_fields)
-    values = list(update_fields.values())
-    values.append(project_id)
-
-    cur.execute(
-        f"UPDATE projects SET {set_clause}, updated_at = NOW() WHERE id = %s",
-        values
-    )
+    set_clause = ', '.join(f"{k} = %s" for k in fields)
+    cur.execute(f"UPDATE projects SET {set_clause}, updated_at = NOW() WHERE id = %s",
+                list(fields.values()) + [project_id])
     conn.commit()
     cur.close()
     conn.close()
     return redirect(f'/projects/{project_id}')
 
 
-# =====================
-# POST /projects/<id>/status — 變更案場狀態
-# =====================
 @bp.route('/projects/<int:project_id>/status', methods=['POST'])
 @login_required
 def update_status(project_id):
     user = get_current_user()
     new_status = request.form.get('status', '').strip()
+    reason = request.form.get('reason', '').strip()
 
     if new_status not in ('active', 'completed', 'closed'):
         return redirect(f'/projects/{project_id}')
 
-    # 只有管理者可以結案/解鎖
     if new_status == 'closed' and user['role'] != 'admin':
         abort(403)
-    # 從結案改回其他狀態也只有管理者可以
+
     conn = get_conn()
     cur = conn.cursor()
-
     cur.execute("SELECT status, designer_id FROM projects WHERE id = %s", (project_id,))
     row = cur.fetchone()
     if not row:
         cur.close(); conn.close()
         abort(404)
 
-    current_status = row[0]
+    current_status, designer_id = row
     if current_status == 'closed' and user['role'] != 'admin':
         cur.close(); conn.close()
         abort(403)
-    if user['role'] != 'admin' and row[1] != user['id']:
+    if user['role'] != 'admin' and designer_id != user['id']:
         cur.close(); conn.close()
         abort(403)
 
-    cur.execute(
-        "UPDATE projects SET status = %s, updated_at = NOW() WHERE id = %s",
-        (new_status, project_id)
-    )
+    cur.execute("UPDATE projects SET status = %s, updated_at = NOW() WHERE id = %s",
+                (new_status, project_id))
+    write_audit_log(cur, 'projects', project_id, 'status',
+                    current_status, new_status, user['id'], reason or None)
     conn.commit()
     cur.close()
     conn.close()
     return redirect(f'/projects/{project_id}')
+
+
+# =====================================================
+# Phase 2: 合約收入 / 收款 / 押金
+# =====================================================
+
+@bp.route('/projects/<int:project_id>/revenue', methods=['POST'])
+@login_required
+def update_revenue(project_id):
+    user = get_current_user()
+    conn = get_conn()
+    cur = conn.cursor()
+    proj = check_project_access(cur, project_id, user)
+    if not proj:
+        cur.close(); conn.close()
+        abort(403)
+
+    fields = {
+        'system_furniture_amount': request.form.get('system_furniture_amount', '0').strip(),
+        'non_system_furniture_amount': request.form.get('non_system_furniture_amount', '0').strip(),
+        'tax_amount': request.form.get('tax_amount', '0').strip(),
+    }
+    for k, v in fields.items():
+        try:
+            new_val = Decimal(v) if v else Decimal('0')
+        except Exception:
+            new_val = Decimal('0')
+        old_val = proj.get(k) or 0
+        if Decimal(str(old_val)) != new_val:
+            write_audit_log(cur, 'projects', project_id, k, old_val, new_val, user['id'])
+        fields[k] = new_val
+
+    cur.execute("""
+        UPDATE projects SET system_furniture_amount = %s, non_system_furniture_amount = %s,
+               tax_amount = %s, updated_at = NOW() WHERE id = %s
+    """, (fields['system_furniture_amount'], fields['non_system_furniture_amount'],
+          fields['tax_amount'], project_id))
+    conn.commit()
+    cur.close()
+    conn.close()
+    return redirect(f'/projects/{project_id}')
+
+
+@bp.route('/projects/<int:project_id>/deposit', methods=['POST'])
+@login_required
+def update_deposit(project_id):
+    user = get_current_user()
+    conn = get_conn()
+    cur = conn.cursor()
+    proj = check_project_access(cur, project_id, user)
+    if not proj:
+        cur.close(); conn.close()
+        abort(403)
+
+    try:
+        dep_amt = Decimal(request.form.get('deposit_amount', '0').strip() or '0')
+        dep_ref = Decimal(request.form.get('deposit_refund', '0').strip() or '0')
+    except Exception:
+        dep_amt = Decimal('0')
+        dep_ref = Decimal('0')
+
+    # 自動判定狀態
+    if dep_ref == 0 and dep_amt > 0:
+        dep_status = 'pending'
+    elif dep_ref < dep_amt:
+        dep_status = 'partial'
+    else:
+        dep_status = 'refunded'
+
+    for field, new_val in [('deposit_amount', dep_amt), ('deposit_refund', dep_ref), ('deposit_status', dep_status)]:
+        old_val = proj.get(field)
+        if str(old_val) != str(new_val):
+            write_audit_log(cur, 'projects', project_id, field, old_val, new_val, user['id'])
+
+    cur.execute("""
+        UPDATE projects SET deposit_amount = %s, deposit_refund = %s,
+               deposit_status = %s, updated_at = NOW() WHERE id = %s
+    """, (dep_amt, dep_ref, dep_status, project_id))
+    conn.commit()
+    cur.close()
+    conn.close()
+    return redirect(f'/projects/{project_id}')
+
+
+# --- 追加減明細 ---
+@bp.route('/projects/<int:project_id>/adjustments/add', methods=['POST'])
+@login_required
+def add_adjustment(project_id):
+    user = get_current_user()
+    conn = get_conn()
+    cur = conn.cursor()
+    proj = check_project_access(cur, project_id, user)
+    if not proj:
+        cur.close(); conn.close()
+        abort(403)
+
+    adjust_date = request.form.get('adjust_date', '').strip() or None
+    description = request.form.get('description', '').strip()
+    try:
+        amount = Decimal(request.form.get('amount', '0').strip())
+    except Exception:
+        cur.close(); conn.close()
+        return redirect(f'/projects/{project_id}')
+
+    cur.execute("""
+        INSERT INTO project_adjustments (project_id, adjust_date, description, amount)
+        VALUES (%s, %s, %s, %s) RETURNING id
+    """, (project_id, adjust_date, description, amount))
+    aid = cur.fetchone()[0]
+    write_audit_log(cur, 'project_adjustments', aid, 'amount', None, amount, user['id'])
+    conn.commit()
+    cur.close()
+    conn.close()
+    return redirect(f'/projects/{project_id}')
+
+
+@bp.route('/projects/<int:project_id>/adjustments/<int:aid>/delete', methods=['POST'])
+@login_required
+def delete_adjustment(project_id, aid):
+    user = get_current_user()
+    conn = get_conn()
+    cur = conn.cursor()
+    proj = check_project_access(cur, project_id, user)
+    if not proj:
+        cur.close(); conn.close()
+        abort(403)
+
+    cur.execute("SELECT amount FROM project_adjustments WHERE id = %s AND project_id = %s", (aid, project_id))
+    row = cur.fetchone()
+    if not row:
+        cur.close(); conn.close()
+        abort(404)
+
+    write_audit_log(cur, 'project_adjustments', aid, 'amount', row[0], 'DELETED', user['id'])
+    cur.execute("DELETE FROM project_adjustments WHERE id = %s", (aid,))
+    conn.commit()
+    cur.close()
+    conn.close()
+    return redirect(f'/projects/{project_id}')
+
+
+# --- 折讓/扣抵明細 ---
+@bp.route('/projects/<int:project_id>/discounts/add', methods=['POST'])
+@login_required
+def add_discount(project_id):
+    user = get_current_user()
+    conn = get_conn()
+    cur = conn.cursor()
+    proj = check_project_access(cur, project_id, user)
+    if not proj:
+        cur.close(); conn.close()
+        abort(403)
+
+    item_name = request.form.get('item_name', '').strip()
+    try:
+        amount = Decimal(request.form.get('amount', '0').strip())
+    except Exception:
+        cur.close(); conn.close()
+        return redirect(f'/projects/{project_id}')
+
+    if not item_name:
+        cur.close(); conn.close()
+        return redirect(f'/projects/{project_id}')
+
+    cur.execute("""
+        INSERT INTO project_discounts (project_id, item_name, amount)
+        VALUES (%s, %s, %s) RETURNING id
+    """, (project_id, item_name, amount))
+    did = cur.fetchone()[0]
+    write_audit_log(cur, 'project_discounts', did, 'amount', None, amount, user['id'])
+    conn.commit()
+    cur.close()
+    conn.close()
+    return redirect(f'/projects/{project_id}')
+
+
+@bp.route('/projects/<int:project_id>/discounts/<int:did>/delete', methods=['POST'])
+@login_required
+def delete_discount(project_id, did):
+    user = get_current_user()
+    conn = get_conn()
+    cur = conn.cursor()
+    proj = check_project_access(cur, project_id, user)
+    if not proj:
+        cur.close(); conn.close()
+        abort(403)
+
+    cur.execute("SELECT amount FROM project_discounts WHERE id = %s AND project_id = %s", (did, project_id))
+    row = cur.fetchone()
+    if not row:
+        cur.close(); conn.close()
+        abort(404)
+
+    write_audit_log(cur, 'project_discounts', did, 'amount', row[0], 'DELETED', user['id'])
+    cur.execute("DELETE FROM project_discounts WHERE id = %s", (did,))
+    conn.commit()
+    cur.close()
+    conn.close()
+    return redirect(f'/projects/{project_id}')
+
+
+# --- 收款明細 ---
+@bp.route('/projects/<int:project_id>/payments/add', methods=['POST'])
+@login_required
+def add_payment(project_id):
+    user = get_current_user()
+    conn = get_conn()
+    cur = conn.cursor()
+    proj = check_project_access(cur, project_id, user)
+    if not proj:
+        cur.close(); conn.close()
+        abort(403)
+
+    payment_date = request.form.get('payment_date', '').strip()
+    payment_method = request.form.get('payment_method', '').strip()
+    try:
+        amount = Decimal(request.form.get('amount', '0').strip())
+    except Exception:
+        cur.close(); conn.close()
+        return redirect(f'/projects/{project_id}')
+
+    if not payment_date or payment_method not in ('現金', '匯款', '其他'):
+        cur.close(); conn.close()
+        return redirect(f'/projects/{project_id}')
+
+    cur.execute("""
+        INSERT INTO project_payments (project_id, payment_date, payment_method, amount)
+        VALUES (%s, %s, %s, %s) RETURNING id
+    """, (project_id, payment_date, payment_method, amount))
+    pid = cur.fetchone()[0]
+    write_audit_log(cur, 'project_payments', pid, 'amount', None, amount, user['id'])
+    conn.commit()
+    cur.close()
+    conn.close()
+    return redirect(f'/projects/{project_id}')
+
+
+@bp.route('/projects/<int:project_id>/payments/<int:pid>/delete', methods=['POST'])
+@login_required
+def delete_payment(project_id, pid):
+    user = get_current_user()
+    conn = get_conn()
+    cur = conn.cursor()
+    proj = check_project_access(cur, project_id, user)
+    if not proj:
+        cur.close(); conn.close()
+        abort(403)
+
+    cur.execute("SELECT amount FROM project_payments WHERE id = %s AND project_id = %s", (pid, project_id))
+    row = cur.fetchone()
+    if not row:
+        cur.close(); conn.close()
+        abort(404)
+
+    write_audit_log(cur, 'project_payments', pid, 'amount', row[0], 'DELETED', user['id'])
+    cur.execute("DELETE FROM project_payments WHERE id = %s", (pid,))
+    conn.commit()
+    cur.close()
+    conn.close()
+    return redirect(f'/projects/{project_id}')
+
+
+@bp.route('/projects/<int:project_id>/payments/<int:pid>/confirm', methods=['POST'])
+@admin_required
+def confirm_payment(project_id, pid):
+    user = get_current_user()
+    conn = get_conn()
+    cur = conn.cursor()
+
+    cur.execute("SELECT is_confirmed FROM project_payments WHERE id = %s AND project_id = %s", (pid, project_id))
+    row = cur.fetchone()
+    if not row:
+        cur.close(); conn.close()
+        abort(404)
+
+    cur.execute("""
+        UPDATE project_payments SET is_confirmed = TRUE,
+               confirmed_by = %s, confirmed_at = NOW()
+        WHERE id = %s
+    """, (user['id'], pid))
+    write_audit_log(cur, 'project_payments', pid, 'is_confirmed', False, True, user['id'])
+    conn.commit()
+    cur.close()
+    conn.close()
+    return redirect(f'/projects/{project_id}')
+
+
+# =====================================================
+# Phase 3: 支出成本 + Dashboard API + 科目管理
+# =====================================================
+
+@bp.route('/projects/<int:project_id>/costs', methods=['POST'])
+@login_required
+def update_costs(project_id):
+    user = get_current_user()
+    conn = get_conn()
+    cur = conn.cursor()
+    proj = check_project_access(cur, project_id, user)
+    if not proj:
+        cur.close(); conn.close()
+        abort(403)
+
+    cur.execute("SELECT id FROM cost_categories WHERE is_active = TRUE")
+    cat_ids = [r[0] for r in cur.fetchall()]
+
+    for cat_id in cat_ids:
+        try:
+            new_amount = Decimal(request.form.get(f'cost_{cat_id}', '0').strip() or '0')
+        except Exception:
+            new_amount = Decimal('0')
+
+        cur.execute("SELECT amount FROM project_costs WHERE project_id = %s AND category_id = %s",
+                    (project_id, cat_id))
+        existing = cur.fetchone()
+        old_amount = existing[0] if existing else Decimal('0')
+
+        if new_amount != old_amount:
+            if existing:
+                cur.execute("UPDATE project_costs SET amount = %s WHERE project_id = %s AND category_id = %s",
+                            (new_amount, project_id, cat_id))
+            else:
+                cur.execute("INSERT INTO project_costs (project_id, category_id, amount) VALUES (%s, %s, %s)",
+                            (project_id, cat_id, new_amount))
+            write_audit_log(cur, 'project_costs', project_id, f'category_{cat_id}',
+                            old_amount, new_amount, user['id'])
+
+    conn.commit()
+    cur.close()
+    conn.close()
+    return redirect(f'/projects/{project_id}')
+
+
+@bp.route('/api/projects/<int:project_id>/summary')
+@login_required
+def api_project_summary(project_id):
+    user = get_current_user()
+    conn = get_conn()
+    cur = conn.cursor()
+
+    cur.execute("SELECT designer_id FROM projects WHERE id = %s", (project_id,))
+    row = cur.fetchone()
+    if not row:
+        cur.close(); conn.close()
+        abort(404)
+    if user['role'] != 'admin' and row[0] != user['id']:
+        cur.close(); conn.close()
+        abort(403)
+
+    summary = _get_project_summary(cur, project_id)
+    cur.close()
+    conn.close()
+    return jsonify(summary)
+
+
+# --- 成本科目管理 ---
+@bp.route('/cost-categories')
+@admin_required
+def cost_category_list():
+    user = get_current_user()
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT id, name, cost_type, sort_order, is_active FROM cost_categories ORDER BY cost_type, sort_order")
+    categories = cur.fetchall()
+    cur.close()
+    conn.close()
+    return render_template('cost_categories.html', categories=categories, user=user)
+
+
+@bp.route('/cost-categories/create', methods=['POST'])
+@admin_required
+def cost_category_create():
+    name = request.form.get('name', '').strip()
+    cost_type = request.form.get('cost_type', '').strip()
+    if not name or cost_type not in ('system', 'non_system'):
+        return redirect('/cost-categories')
+
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT COALESCE(MAX(sort_order), 0) + 1 FROM cost_categories WHERE cost_type = %s", (cost_type,))
+    next_order = cur.fetchone()[0]
+    cur.execute("INSERT INTO cost_categories (name, cost_type, sort_order) VALUES (%s, %s, %s)",
+                (name, cost_type, next_order))
+    conn.commit()
+    cur.close()
+    conn.close()
+    return redirect('/cost-categories')
+
+
+@bp.route('/cost-categories/<int:cid>/update', methods=['POST'])
+@admin_required
+def cost_category_update(cid):
+    name = request.form.get('name', '').strip()
+    if not name:
+        return redirect('/cost-categories')
+
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("UPDATE cost_categories SET name = %s WHERE id = %s", (name, cid))
+    conn.commit()
+    cur.close()
+    conn.close()
+    return redirect('/cost-categories')
+
+
+@bp.route('/cost-categories/<int:cid>/toggle', methods=['POST'])
+@admin_required
+def cost_category_toggle(cid):
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("UPDATE cost_categories SET is_active = NOT is_active WHERE id = %s", (cid,))
+    conn.commit()
+    cur.close()
+    conn.close()
+    return redirect('/cost-categories')
+
+
+# =====================================================
+# Phase 4: 分潤結算 + 獎金出帳 + Audit Log 查看
+# =====================================================
+
+@bp.route('/projects/<int:project_id>/settlement', methods=['POST'])
+@admin_required
+def update_settlement(project_id):
+    user = get_current_user()
+    conn = get_conn()
+    cur = conn.cursor()
+
+    cur.execute("SELECT profit_share_pct FROM projects WHERE id = %s", (project_id,))
+    row = cur.fetchone()
+    if not row:
+        cur.close(); conn.close()
+        abort(404)
+
+    try:
+        new_pct = Decimal(request.form.get('profit_share_pct', '0').strip() or '0')
+    except Exception:
+        new_pct = Decimal('0')
+
+    old_pct = row[0] or 0
+    if Decimal(str(old_pct)) != new_pct:
+        write_audit_log(cur, 'projects', project_id, 'profit_share_pct', old_pct, new_pct, user['id'])
+
+    cur.execute("UPDATE projects SET profit_share_pct = %s, updated_at = NOW() WHERE id = %s",
+                (new_pct, project_id))
+    conn.commit()
+    cur.close()
+    conn.close()
+    return redirect(f'/projects/{project_id}')
+
+
+@bp.route('/projects/<int:project_id>/bonus-check', methods=['POST'])
+@admin_required
+def bonus_check(project_id):
+    user = get_current_user()
+    conn = get_conn()
+    cur = conn.cursor()
+
+    cur.execute("SELECT bonus_checked FROM projects WHERE id = %s", (project_id,))
+    row = cur.fetchone()
+    if not row:
+        cur.close(); conn.close()
+        abort(404)
+
+    new_val = not row[0]
+    cur.execute("UPDATE projects SET bonus_checked = %s, updated_at = NOW() WHERE id = %s",
+                (new_val, project_id))
+    write_audit_log(cur, 'projects', project_id, 'bonus_checked', row[0], new_val, user['id'])
+    conn.commit()
+    cur.close()
+    conn.close()
+    return redirect(f'/projects/{project_id}')
+
+
+@bp.route('/projects/<int:project_id>/bonus-disburse', methods=['POST'])
+@admin_required
+def bonus_disburse(project_id):
+    user = get_current_user()
+    conn = get_conn()
+    cur = conn.cursor()
+
+    cur.execute("SELECT bonus_checked, bonus_disbursed, designer_id FROM projects WHERE id = %s", (project_id,))
+    row = cur.fetchone()
+    if not row:
+        cur.close(); conn.close()
+        abort(404)
+    if not row[0] or row[1]:  # 未核對 or 已出帳
+        cur.close(); conn.close()
+        return redirect(f'/projects/{project_id}')
+
+    summary = _get_project_summary(cur, project_id)
+    bonus_amount = summary['designer_bonus']
+
+    # 取得設計師姓名
+    cur.execute("SELECT display_name FROM users WHERE id = %s", (row[2],))
+    designer_name = cur.fetchone()[0]
+
+    # 取得案名
+    cur.execute("SELECT case_name FROM projects WHERE id = %s", (project_id,))
+    case_name = cur.fetchone()[0]
+
+    # 建立報帳紀錄
+    cur.execute("""
+        INSERT INTO reports (vendor, vendor_type, amount, category,
+                             invoice_date, project_no, payment_method, user_id)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        RETURNING id
+    """, (designer_name, 'designer_bonus', bonus_amount, '設計師獎金',
+          date.today().isoformat(), case_name, '公司轉帳', user['id']))
+    report_id = cur.fetchone()[0]
+
+    cur.execute("""
+        UPDATE projects SET bonus_disbursed = TRUE, bonus_report_id = %s,
+               updated_at = NOW() WHERE id = %s
+    """, (report_id, project_id))
+    write_audit_log(cur, 'projects', project_id, 'bonus_disbursed', False, True, user['id'])
+    conn.commit()
+    cur.close()
+    conn.close()
+    return redirect(f'/projects/{project_id}')
+
+
+@bp.route('/projects/<int:project_id>/logs')
+@login_required
+def project_logs(project_id):
+    user = get_current_user()
+    conn = get_conn()
+    cur = conn.cursor()
+
+    cur.execute("SELECT designer_id FROM projects WHERE id = %s", (project_id,))
+    row = cur.fetchone()
+    if not row:
+        cur.close(); conn.close()
+        abort(404)
+    if user['role'] != 'admin' and row[0] != user['id']:
+        cur.close(); conn.close()
+        abort(403)
+
+    cur.execute("""
+        SELECT al.changed_at, u.display_name, al.table_name, al.field_name,
+               al.old_value, al.new_value, al.reason
+        FROM audit_logs al
+        LEFT JOIN users u ON al.changed_by = u.id
+        WHERE (al.table_name = 'projects' AND al.record_id = %s)
+           OR (al.table_name IN ('project_adjustments', 'project_discounts',
+                                  'project_payments', 'project_costs')
+               AND al.record_id IN (
+                   SELECT id FROM project_adjustments WHERE project_id = %s
+                   UNION SELECT id FROM project_discounts WHERE project_id = %s
+                   UNION SELECT id FROM project_payments WHERE project_id = %s
+               ))
+           OR (al.table_name = 'project_costs' AND al.record_id = %s)
+        ORDER BY al.changed_at DESC
+    """, (project_id, project_id, project_id, project_id, project_id))
+    logs = cur.fetchall()
+
+    cur.execute("SELECT case_name FROM projects WHERE id = %s", (project_id,))
+    case_name = cur.fetchone()[0]
+
+    cur.close()
+    conn.close()
+    return render_template('project_logs.html', logs=logs, user=user,
+                           project_id=project_id, case_name=case_name)

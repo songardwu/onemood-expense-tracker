@@ -1232,6 +1232,113 @@ input, select, textarea {
     color: var(--red);
 }
 
+/* --- Inline Add Form --- */
+.inline-add-form {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-top: 12px;
+    flex-wrap: wrap;
+}
+
+.section-form {
+    margin-bottom: 8px;
+}
+
+/* --- Summary Row --- */
+.summary-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    font-size: 15px;
+}
+
+/* --- Cost Grid --- */
+.cost-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+}
+
+@media (max-width: 600px) {
+    .cost-grid { grid-template-columns: 1fr; }
+}
+
+.cost-section h4 {
+    margin-bottom: 8px;
+}
+
+/* --- Dashboard Grid --- */
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 16px;
+    margin-top: 12px;
+}
+
+.dashboard-card {
+    background: var(--bg);
+    border-radius: var(--radius-m);
+    padding: 16px;
+    text-align: center;
+}
+
+.dashboard-label {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+}
+
+.dashboard-value {
+    font-size: 22px;
+    font-weight: 700;
+    font-family: var(--font-heading);
+}
+
+/* --- Negative Amount --- */
+.negative {
+    color: var(--red) !important;
+}
+
+/* --- Bonus Actions --- */
+.bonus-actions {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+/* --- Alert Warning --- */
+.alert-warning {
+    background: var(--orange-light);
+    color: var(--orange);
+    padding: 12px 16px;
+    border-radius: var(--radius-m);
+    font-size: 14px;
+}
+
+/* --- Detail Table Header --- */
+.detail-table th {
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--text-secondary);
+    font-weight: 600;
+    text-align: left;
+}
+
+/* --- btn-success --- */
+.btn-success {
+    background: var(--green);
+    color: #fff;
+    border: none;
+    padding: 5px 12px;
+    border-radius: var(--radius-s);
+    font-size: 12px;
+    cursor: pointer;
+}
+
 /* --- Dark mode — Earth-tone dark (respects system preference) --- */
 @media (prefers-color-scheme: dark) {
     :root {

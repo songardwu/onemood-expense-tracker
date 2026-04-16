@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>成本科目管理</h1>
+
+<div class="bento-grid">
+
+<div class="bento-cell bento-cell--half">
+    <h3>系統工程成本</h3>
+    <table class="detail-table">
+        <thead><tr><th>科目名稱</th><th>狀態</th><th></th></tr></thead>
+        <tbody>
+        {% for c in categories if c[2] == 'system' %}
+        <tr style="{{ 'opacity:0.4;' if not c[4] else '' }}">
+            <td>
+                <form method="POST" action="/cost-categories/{{ c[0] }}/update" class="inline-form">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="text" name="name" value="{{ c[1] }}" class="small-input" style="width:160px;">
+                    <button type="submit" class="btn-small">更新</button>
+                </form>
+            </td>
+            <td>
+                {% if c[4] %}
+                    <span class="status-badge status-active">啟用</span>
+                {% else %}
+                    <span class="status-badge status-disabled">停用</span>
+                {% endif %}
+            </td>
+            <td>
+                <form method="POST" action="/cost-categories/{{ c[0] }}/toggle" class="inline-form">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn-small {{ 'btn-danger' if c[4] else 'btn-success' }}">
+                        {{ '停用' if c[4] else '啟用' }}
+                    </button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div class="bento-cell bento-cell--half">
+    <h3>非系統工程成本</h3>
+    <table class="detail-table">
+        <thead><tr><th>科目名稱</th><th>狀態</th><th></th></tr></thead>
+        <tbody>
+        {% for c in categories if c[2] == 'non_system' %}
+        <tr style="{{ 'opacity:0.4;' if not c[4] else '' }}">
+            <td>
+                <form method="POST" action="/cost-categories/{{ c[0] }}/update" class="inline-form">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="text" name="name" value="{{ c[1] }}" class="small-input" style="width:160px;">
+                    <button type="submit" class="btn-small">更新</button>
+                </form>
+            </td>
+            <td>
+                {% if c[4] %}
+                    <span class="status-badge status-active">啟用</span>
+                {% else %}
+                    <span class="status-badge status-disabled">停用</span>
+                {% endif %}
+            </td>
+            <td>
+                <form method="POST" action="/cost-categories/{{ c[0] }}/toggle" class="inline-form">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn-small {{ 'btn-danger' if c[4] else 'btn-success' }}">
+                        {{ '停用' if c[4] else '啟用' }}
+                    </button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- 新增科目 -->
+<div class="bento-cell bento-cell--full">
+    <h3>新增科目</h3>
+    <form method="POST" action="/cost-categories/create" class="inline-add-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="text" name="name" placeholder="科目名稱" class="small-input" style="width:200px;" required>
+        <select name="cost_type" class="small-input" required>
+            <option value="system">系統工程</option>
+            <option value="non_system">非系統工程</option>
+        </select>
+        <button type="submit" class="btn btn-primary">新增</button>
+    </form>
+</div>
+
+<div class="bento-cell bento-cell--full bento-cell--transparent">
+    <a href="/projects" class="btn btn-secondary">返回案場列表</a>
+</div>
+
+</div>
+{% endblock %}

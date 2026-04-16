@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>修改紀錄 — {{ case_name }}</h1>
+
+<div class="bento-grid">
+<div class="bento-cell bento-cell--full">
+
+{% if logs %}
+<table class="desktop-table">
+    <thead>
+        <tr>
+            <th>時間</th>
+            <th>操作人</th>
+            <th>資料表</th>
+            <th>欄位</th>
+            <th>舊值</th>
+            <th>新值</th>
+            <th>原因</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for log in logs %}
+    <tr>
+        <td>{{ log[0].strftime('%Y-%m-%d %H:%M') if log[0] else '-' }}</td>
+        <td>{{ log[1] or '-' }}</td>
+        <td>{{ log[2] }}</td>
+        <td>{{ log[3] }}</td>
+        <td>{{ log[4] or '-' }}</td>
+        <td>{{ log[5] or '-' }}</td>
+        <td>{{ log[6] or '' }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+
+<!-- Mobile Cards -->
+<div class="mobile-cards">
+    {% for log in logs %}
+    <div class="bento-cell">
+        <div style="font-size:12px;color:var(--text-secondary);">
+            {{ log[0].strftime('%Y-%m-%d %H:%M') if log[0] else '-' }} | {{ log[1] or '-' }}
+        </div>
+        <div style="margin-top:6px;">
+            <strong>{{ log[3] }}</strong>：{{ log[4] or '-' }} → {{ log[5] or '-' }}
+        </div>
+        {% if log[6] %}
+        <div style="margin-top:4px;font-size:13px;color:var(--orange);">原因：{{ log[6] }}</div>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<p style="text-align:center;color:var(--text-secondary);padding:40px 0;">尚無修改紀錄</p>
+{% endif %}
+
+</div>
+
+<div class="bento-cell bento-cell--full bento-cell--transparent">
+    <a href="/projects/{{ project_id }}" class="btn btn-secondary">返回案場</a>
+</div>
+</div>
+{% endblock %}

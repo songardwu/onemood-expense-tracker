@@ -12,9 +12,11 @@
 </div>
 <p style="color:var(--text-secondary);margin-bottom:20px;">{{ project.case_id }}</p>
 
+{% set editable = project.status != 'closed' or user.role == 'admin' %}
+
 <div class="bento-grid">
 
-<!-- 區塊一：基本資料 -->
+<!-- ========== 區塊一：基本資料 ========== -->
 <div class="bento-cell bento-cell--half">
     <h3>案場基本資料</h3>
     <table class="detail-table">
@@ -26,24 +28,381 @@
     </table>
 </div>
 
-<!-- 施工資訊 -->
 <div class="bento-cell bento-cell--half">
     <h3>施工資訊</h3>
     <table class="detail-table">
         <tr><td class="label">施工開始</td><td>{{ project.construction_start or '-' }}</td></tr>
         <tr><td class="label">施工結束</td><td>{{ project.construction_end or '-' }}</td></tr>
-        <tr>
-            <td class="label">施工天數</td>
-            <td>{{ '%d 天' % construction_days if construction_days else '-' }}</td>
-        </tr>
+        <tr><td class="label">施工天數</td><td>{{ '%d 天' % construction_days if construction_days else '-' }}</td></tr>
     </table>
 </div>
 
-<!-- 操作按鈕 -->
+<!-- ========== 區塊二：合約與收款進度 ========== -->
+<div class="bento-cell bento-cell--full">
+    <h3>合約與收款進度</h3>
+
+    <!-- 合約金額 -->
+    <form method="POST" action="/projects/{{ project.id }}/revenue" class="section-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="form-grid">
+            <div class="form-group">
+                <label>系統家具金額</label>
+                <input type="number" name="system_furniture_amount" step="0.01"
+                       value="{{ project.system_furniture_amount or 0 }}" {{ 'disabled' if not editable }}>
+            </div>
+            <div class="form-group">
+                <label>非系統家具金額</label>
+                <input type="number" name="non_system_furniture_amount" step="0.01"
+                       value="{{ project.non_system_furniture_amount or 0 }}" {{ 'disabled' if not editable }}>
+            </div>
+            <div class="form-group">
+                <label>5% 營業稅</label>
+                <input type="number" name="tax_amount" step="0.01"
+                       value="{{ project.tax_amount or 0 }}" {{ 'disabled' if not editable }}>
+            </div>
+            <div class="form-group">
+                <label>原簽約總金額</label>
+                <input type="text" value="{{ '{:,.0f}'.format(summary.original_contract) }}" disabled>
+            </div>
+        </div>
+        {% if editable %}
+        <button type="submit" class="btn btn-primary">儲存合約金額</button>
+        {% endif %}
+    </form>
+
+    <hr style="border:none;border-top:1px solid var(--border-light);margin:20px 0;">
+
+    <!-- 追加減明細 -->
+    <h4>追加減明細</h4>
+    {% if adjustments %}
+    <table class="detail-table">
+        <thead><tr><th>日期</th><th>說明</th><th style="text-align:right">金額</th><th></th></tr></thead>
+        <tbody>
+        {% for a in adjustments %}
+        <tr>
+            <td>{{ a[1] or '-' }}</td>
+            <td>{{ a[2] or '-' }}</td>
+            <td style="text-align:right" class="{{ 'negative' if a[3] < 0 else '' }}">{{ '{:,.0f}'.format(a[3]) }}</td>
+            <td>
+                {% if editable %}
+                <form method="POST" action="/projects/{{ project.id }}/adjustments/{{ a[0] }}/delete" class="inline-form">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn-small btn-danger">刪除</button>
+                </form>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+        <tr style="font-weight:600;">
+            <td colspan="2">淨追加減</td>
+            <td style="text-align:right">{{ '{:,.0f}'.format(summary.net_adjustment) }}</td>
+            <td></td>
+        </tr>
+        </tbody>
+    </table>
+    {% endif %}
+    {% if editable %}
+    <form method="POST" action="/projects/{{ project.id }}/adjustments/add" class="inline-add-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="date" name="adjust_date" class="small-input">
+        <input type="text" name="description" placeholder="說明" class="small-input" style="width:150px;">
+        <input type="number" name="amount" step="0.01" placeholder="金額" class="small-input" required>
+        <button type="submit" class="btn-small">新增</button>
+    </form>
+    {% endif %}
+
+    <hr style="border:none;border-top:1px solid var(--border-light);margin:20px 0;">
+
+    <!-- 折讓/扣抵明細 -->
+    <h4>折讓/扣抵明細</h4>
+    {% if discounts %}
+    <table class="detail-table">
+        <thead><tr><th>項目</th><th style="text-align:right">金額</th><th></th></tr></thead>
+        <tbody>
+        {% for d in discounts %}
+        <tr>
+            <td>{{ d[1] }}</td>
+            <td style="text-align:right">{{ '{:,.0f}'.format(d[2]) }}</td>
+            <td>
+                {% if editable %}
+                <form method="POST" action="/projects/{{ project.id }}/discounts/{{ d[0] }}/delete" class="inline-form">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn-small btn-danger">刪除</button>
+                </form>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+        <tr style="font-weight:600;">
+            <td>折讓合計</td>
+            <td style="text-align:right">{{ '{:,.0f}'.format(summary.total_discount) }}</td>
+            <td></td>
+        </tr>
+        </tbody>
+    </table>
+    {% endif %}
+    {% if editable %}
+    <form method="POST" action="/projects/{{ project.id }}/discounts/add" class="inline-add-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="text" name="item_name" placeholder="項目名稱" class="small-input" style="width:150px;" required>
+        <input type="number" name="amount" step="0.01" placeholder="金額" class="small-input" required>
+        <button type="submit" class="btn-small">新增</button>
+    </form>
+    {% endif %}
+
+    <hr style="border:none;border-top:1px solid var(--border-light);margin:20px 0;">
+
+    <!-- 押金 -->
+    <h4>裝修押金</h4>
+    <form method="POST" action="/projects/{{ project.id }}/deposit" class="section-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="form-grid">
+            <div class="form-group">
+                <label>押金金額</label>
+                <input type="number" name="deposit_amount" step="0.01"
+                       value="{{ project.deposit_amount or 0 }}" {{ 'disabled' if not editable }}>
+            </div>
+            <div class="form-group">
+                <label>實際退還金額</label>
+                <input type="number" name="deposit_refund" step="0.01"
+                       value="{{ project.deposit_refund or 0 }}" {{ 'disabled' if not editable }}>
+            </div>
+            <div class="form-group">
+                <label>押金狀態</label>
+                <input type="text" value="{% if project.deposit_status == 'pending' %}待退{% elif project.deposit_status == 'partial' %}部分退還{% else %}已退{% endif %}" disabled>
+            </div>
+            <div class="form-group">
+                <label>押金扣抵（計入利潤）</label>
+                <input type="text" value="{{ '{:,.0f}'.format(summary.deposit_deduction) }}" disabled>
+            </div>
+        </div>
+        {% if editable %}
+        <button type="submit" class="btn btn-primary">儲存押金</button>
+        {% endif %}
+    </form>
+
+    <hr style="border:none;border-top:1px solid var(--border-light);margin:20px 0;">
+
+    <!-- 結算總價 -->
+    <div class="summary-row">
+        <span>結算總價（最終應收）</span>
+        <strong style="font-size:18px;">{{ '{:,.0f}'.format(summary.settlement_price) }}</strong>
+    </div>
+
+    <hr style="border:none;border-top:1px solid var(--border-light);margin:20px 0;">
+
+    <!-- 收款明細 -->
+    <h4>收款明細</h4>
+    {% if payments %}
+    <table class="detail-table">
+        <thead><tr><th>狀態</th><th>日期</th><th>付款方式</th><th style="text-align:right">金額</th><th></th></tr></thead>
+        <tbody>
+        {% for p in payments %}
+        <tr style="{{ 'opacity:0.5;' if not p[4] else '' }}">
+            <td>
+                {% if p[4] %}
+                    <span class="status-badge status-active">已確認</span>
+                {% else %}
+                    <span class="status-badge status-disabled">待確認</span>
+                {% endif %}
+            </td>
+            <td>{{ p[1] }}</td>
+            <td>{{ p[2] }}</td>
+            <td style="text-align:right">{{ '{:,.0f}'.format(p[3]) }}</td>
+            <td>
+                {% if not p[4] and user.role == 'admin' %}
+                <form method="POST" action="/projects/{{ project.id }}/payments/{{ p[0] }}/confirm" class="inline-form">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn-small btn-success">確認</button>
+                </form>
+                {% endif %}
+                {% if editable %}
+                <form method="POST" action="/projects/{{ project.id }}/payments/{{ p[0] }}/delete" class="inline-form">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn-small btn-danger">刪除</button>
+                </form>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+    {% if editable %}
+    <form method="POST" action="/projects/{{ project.id }}/payments/add" class="inline-add-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="date" name="payment_date" class="small-input" required>
+        <select name="payment_method" class="small-input" required>
+            <option value="現金">現金</option>
+            <option value="匯款">匯款</option>
+            <option value="其他">其他</option>
+        </select>
+        <input type="number" name="amount" step="0.01" placeholder="金額" class="small-input" required>
+        <button type="submit" class="btn-small">新增收款</button>
+    </form>
+    {% endif %}
+
+    <div class="summary-row" style="margin-top:16px;">
+        <span>累計實收（已確認）</span>
+        <strong>{{ '{:,.0f}'.format(summary.total_received) }}</strong>
+    </div>
+    <div class="summary-row">
+        <span>剩餘尾款</span>
+        <strong class="{{ 'negative' if summary.remaining_balance > 0 else '' }}">{{ '{:,.0f}'.format(summary.remaining_balance) }}</strong>
+    </div>
+</div>
+
+<!-- ========== 區塊三 & 四：支出明細 ========== -->
+<div class="bento-cell bento-cell--full">
+    <h3>支出成本明細</h3>
+    <form method="POST" action="/projects/{{ project.id }}/costs">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="cost-grid">
+            <div class="cost-section">
+                <h4>系統工程成本</h4>
+                <table class="detail-table">
+                {% set ns = namespace(sys_total=0) %}
+                {% for c in costs if c[2] == 'system' %}
+                <tr>
+                    <td class="label">{{ c[1] }}</td>
+                    <td><input type="number" name="cost_{{ c[0] }}" step="0.01"
+                               value="{{ c[3] }}" class="small-input"
+                               {{ 'disabled' if not editable }}></td>
+                </tr>
+                {% set ns.sys_total = ns.sys_total + (c[3] or 0) %}
+                {% endfor %}
+                <tr style="font-weight:600;">
+                    <td>小計 A</td>
+                    <td>{{ '{:,.0f}'.format(summary.cost_system) }}</td>
+                </tr>
+                </table>
+            </div>
+            <div class="cost-section">
+                <h4>非系統工程成本</h4>
+                <table class="detail-table">
+                {% for c in costs if c[2] == 'non_system' %}
+                <tr>
+                    <td class="label">{{ c[1] }}</td>
+                    <td><input type="number" name="cost_{{ c[0] }}" step="0.01"
+                               value="{{ c[3] }}" class="small-input"
+                               {{ 'disabled' if not editable }}></td>
+                </tr>
+                {% endfor %}
+                <tr style="font-weight:600;">
+                    <td>小計 B</td>
+                    <td>{{ '{:,.0f}'.format(summary.cost_non_system) }}</td>
+                </tr>
+                </table>
+            </div>
+        </div>
+        {% if editable %}
+        <button type="submit" class="btn btn-primary" style="margin-top:16px;">儲存成本</button>
+        {% endif %}
+    </form>
+</div>
+
+<!-- ========== 區塊五：損益 Dashboard ========== -->
+<div class="bento-cell bento-cell--full" id="dashboard">
+    <h3>損益分析</h3>
+    <div class="dashboard-grid">
+        <div class="dashboard-card">
+            <div class="dashboard-label">案場總成本</div>
+            <div class="dashboard-value">{{ '{:,.0f}'.format(summary.total_cost) }}</div>
+        </div>
+        <div class="dashboard-card">
+            <div class="dashboard-label">案場利潤</div>
+            <div class="dashboard-value {{ 'negative' if summary.profit < 0 else '' }}">
+                {{ '{:,.0f}'.format(summary.profit) }}
+            </div>
+        </div>
+        <div class="dashboard-card">
+            <div class="dashboard-label">利潤率</div>
+            <div class="dashboard-value {{ 'negative' if summary.profit < 0 else '' }}">
+                {% if summary.original_contract > 0 %}
+                    {{ '{:.1f}%'.format(summary.profit / summary.original_contract * 100) }}
+                {% else %}
+                    -
+                {% endif %}
+            </div>
+        </div>
+        <div class="dashboard-card">
+            <div class="dashboard-label">押金扣抵（計入利潤）</div>
+            <div class="dashboard-value">{{ '{:,.0f}'.format(summary.deposit_deduction) }}</div>
+        </div>
+    </div>
+</div>
+
+<!-- ========== 區塊六：結算與分潤 ========== -->
+<div class="bento-cell bento-cell--full">
+    <h3>結算與分潤</h3>
+
+    <!-- 分潤比設定 -->
+    <form method="POST" action="/projects/{{ project.id }}/settlement" class="section-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="form-grid">
+            <div class="form-group">
+                <label>設計師分潤比 (%)</label>
+                <input type="number" name="profit_share_pct" step="0.01" min="0" max="100"
+                       value="{{ project.profit_share_pct or 0 }}"
+                       {{ 'disabled' if user.role != 'admin' }}>
+            </div>
+            <div class="form-group">
+                <label>設計師獎金</label>
+                <input type="text" value="{{ '{:,.0f}'.format(summary.designer_bonus) }}" disabled
+                       class="{{ 'negative' if summary.designer_bonus < 0 else '' }}">
+            </div>
+            <div class="form-group">
+                <label>公司收益</label>
+                <input type="text" value="{{ '{:,.0f}'.format(summary.company_profit) }}" disabled
+                       class="{{ 'negative' if summary.company_profit < 0 else '' }}">
+            </div>
+        </div>
+        {% if user.role == 'admin' %}
+        <button type="submit" class="btn btn-primary">儲存分潤比</button>
+        {% endif %}
+    </form>
+
+    <!-- 獎金核對與出帳 -->
+    {% if user.role == 'admin' %}
+    <hr style="border:none;border-top:1px solid var(--border-light);margin:20px 0;">
+    <div class="bonus-actions">
+        <form method="POST" action="/projects/{{ project.id }}/bonus-check" class="inline-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn {{ 'btn-success' if not project.bonus_checked else 'btn-secondary' }}"
+                    {{ 'disabled' if project.bonus_disbursed }}>
+                {% if project.bonus_checked %}取消核對{% else %}獎金核對{% endif %}
+            </button>
+        </form>
+
+        <form method="POST" action="/projects/{{ project.id }}/bonus-disburse" class="inline-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-primary"
+                    {{ 'disabled' if not project.bonus_checked or project.bonus_disbursed }}>
+                確認出帳
+            </button>
+        </form>
+
+        {% if project.bonus_disbursed %}
+        <span class="status-badge status-active">已出帳</span>
+        {% endif %}
+    </div>
+
+    <!-- 出帳後差異警示 -->
+    {% if summary.bonus_diff is not none and summary.bonus_diff != 0 %}
+    <div class="alert-warning" style="margin-top:16px;">
+        已出帳 {{ '{:,.0f}'.format(summary.disbursed_amount) }}
+        / 目前應為 {{ '{:,.0f}'.format(summary.designer_bonus) }}
+        / 差異 <strong>{{ '{:,.0f}'.format(summary.bonus_diff) }}</strong>
+    </div>
+    {% endif %}
+    {% endif %}
+</div>
+
+<!-- ========== 操作按鈕 ========== -->
 <div class="bento-cell bento-cell--full bento-cell--transparent">
     <div class="actions">
-        {% if project.status != 'closed' or user.role == 'admin' %}
-        <a href="/projects/{{ project.id }}/edit" class="btn btn-primary">編輯</a>
+        {% if editable %}
+        <a href="/projects/{{ project.id }}/edit" class="btn btn-primary">編輯基本資料</a>
         {% endif %}
 
         {% if project.status == 'active' %}
@@ -64,13 +423,15 @@
             <button type="submit" class="btn btn-secondary">恢復進行中</button>
         </form>
         {% elif project.status == 'closed' and user.role == 'admin' %}
-        <form method="POST" action="/projects/{{ project.id }}/status" class="inline-form">
+        <form method="POST" action="/projects/{{ project.id }}/status" class="inline-form"
+              onsubmit="var r=prompt('請輸入解鎖原因：');if(!r)return false;var i=document.createElement('input');i.type='hidden';i.name='reason';i.value=r;this.appendChild(i);">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="status" value="active">
             <button type="submit" class="btn btn-secondary">解除結案</button>
         </form>
         {% endif %}
 
+        <a href="/projects/{{ project.id }}/logs" class="btn btn-secondary">修改紀錄</a>
         <a href="/projects" class="btn btn-secondary">返回列表</a>
     </div>
 </div>

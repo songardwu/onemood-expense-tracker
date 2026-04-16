@@ -125,3 +125,38 @@ def admin_required(f):
             return redirect('/')
         return f(*args, **kwargs)
     return decorated
+
+
+# =====================
+# Audit Log
+# =====================
+def write_audit_log(cur, table_name, record_id, field_name,
+                    old_value, new_value, user_id, reason=None):
+    cur.execute("""
+        INSERT INTO audit_logs (table_name, record_id, field_name,
+                                old_value, new_value, changed_by, reason)
+        VALUES (%s, %s, %s, %s, %s, %s, %s)
+    """, (table_name, record_id, field_name,
+          str(old_value) if old_value is not None else None,
+          str(new_value) if new_value is not None else None,
+          user_id, reason))
+
+
+# =====================
+# 案場權限檢查
+# =====================
+def check_project_access(cur, project_id, user, require_editable=True):
+    """檢查案場存取權限，回傳 project dict 或 None"""
+    cur.execute("SELECT * FROM projects WHERE id = %s", (project_id,))
+    row = cur.fetchone()
+    if not row:
+        return None
+    col_names = [desc[0] for desc in cur.description]
+    proj = dict(zip(col_names, row))
+    # 設計師只能存取自己的案場
+    if user['role'] != 'admin' and proj['designer_id'] != user['id']:
+        return None
+    # 結案後不可編輯（admin 除外）
+    if require_editable and proj['status'] == 'closed' and user['role'] != 'admin':
+        return None
+    return proj
