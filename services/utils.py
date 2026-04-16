@@ -1,0 +1,127 @@
+import os
+from datetime import date, timedelta
+from functools import wraps
+
+import psycopg2
+from flask import redirect, session
+
+# =====================
+# 台灣國定假日 + 匯款日期計算
+# =====================
+TW_HOLIDAYS_2026 = {
+    date(2026, 1, 1),   # 元旦
+    date(2026, 1, 2),   # 元旦補假
+    date(2026, 2, 14),  # 除夕前調整放假
+    date(2026, 2, 15),  # 除夕前調整放假
+    date(2026, 2, 16),  # 除夕
+    date(2026, 2, 17),  # 春節
+    date(2026, 2, 18),  # 春節
+    date(2026, 2, 19),  # 春節
+    date(2026, 2, 20),  # 春節補假
+    date(2026, 2, 28),  # 和平紀念日（六）
+    date(2026, 3, 2),   # 和平紀念日補假（一）
+    date(2026, 4, 3),   # 兒童節（五）
+    date(2026, 4, 4),   # 清明節（六）
+    date(2026, 4, 6),   # 清明補假（一）
+    date(2026, 5, 1),   # 勞動節
+    date(2026, 5, 31),  # 端午節（日）
+    date(2026, 6, 1),   # 端午補假（一）
+    date(2026, 10, 1),  # 中秋節（四）
+    date(2026, 10, 2),  # 中秋節補假（五）
+    date(2026, 10, 10), # 國慶日（六）
+    date(2026, 10, 12), # 國慶補假（一）
+}
+
+TW_HOLIDAYS_2027 = {
+    date(2027, 1, 1),   # 元旦
+    date(2027, 2, 5),   # 除夕前
+    date(2027, 2, 6),   # 除夕
+    date(2027, 2, 7),   # 春節
+    date(2027, 2, 8),   # 春節
+    date(2027, 2, 9),   # 春節
+    date(2027, 2, 10),  # 春節補假
+    date(2027, 2, 28),  # 和平紀念日（日）
+    date(2027, 3, 1),   # 和平紀念日補假
+    date(2027, 4, 4),   # 清明節（日）
+    date(2027, 4, 5),   # 兒童節（一）
+    date(2027, 5, 1),   # 勞動節
+    date(2027, 6, 19),  # 端午節（六）
+    date(2027, 6, 21),  # 端午補假（一）
+    date(2027, 9, 25),  # 中秋節（六）
+    date(2027, 9, 27),  # 中秋補假（一）
+    date(2027, 10, 10), # 國慶日（日）
+    date(2027, 10, 11), # 國慶補假（一）
+}
+
+TW_HOLIDAYS = TW_HOLIDAYS_2026 | TW_HOLIDAYS_2027
+
+
+def is_business_day(d):
+    """判斷是否為工作日（排除週末 + 台灣國定假日）"""
+    if d.weekday() >= 5:  # 六=5, 日=6
+        return False
+    if d in TW_HOLIDAYS:
+        return False
+    return True
+
+
+def next_business_day(d):
+    """找到 d 當天或之後的第一個工作日"""
+    while not is_business_day(d):
+        d += timedelta(days=1)
+    return d
+
+
+def default_remit_date(from_date=None):
+    """計算預設匯款日期：下個月 5 日，遇假日順延"""
+    if from_date is None:
+        from_date = date.today()
+    # 下個月
+    if from_date.month == 12:
+        target = date(from_date.year + 1, 1, 5)
+    else:
+        target = date(from_date.year, from_date.month + 1, 5)
+    return next_business_day(target)
+
+
+# =====================
+# DB 連線
+# =====================
+def get_conn():
+    url = os.environ.get('POSTGRES_URL') or os.environ.get('DATABASE_URL')
+    return psycopg2.connect(url)
+
+
+# =====================
+# 認證工具
+# =====================
+def get_current_user():
+    user_id = session.get('user_id')
+    if not user_id:
+        return None
+    return {
+        'id': user_id,
+        'role': session.get('role'),
+        'display_name': session.get('display_name'),
+    }
+
+
+def login_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if not get_current_user():
+            return redirect('/login')
+        return f(*args, **kwargs)
+    return decorated
+
+
+def admin_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        user = get_current_user()
+        if not user:
+            return redirect('/login')
+        if user['role'] != 'admin':
+            return redirect('/')
+        return f(*args, **kwargs)
+    return decorated
