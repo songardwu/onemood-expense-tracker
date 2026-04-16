@@ -505,10 +505,10 @@ section('15. 清理測試資料')
 # ============================================================
 db_exec("DELETE FROM reports WHERE invoice_no LIKE %s", ('S-%',))
 db_exec("DELETE FROM reports WHERE invoice_no = %s", ('S-ADMIN-001',))
-db_exec("DELETE FROM vendors WHERE name LIKE %s", ('S\\_%',))
+db_exec("DELETE FROM vendors WHERE name LIKE %s", ('S_%',))
 remaining = db_query("SELECT COUNT(*) FROM reports WHERE invoice_no LIKE %s", ('S-%',))
 check('報表清理完成', remaining[0][0] == 0)
-remaining2 = db_query("SELECT COUNT(*) FROM vendors WHERE name LIKE %s", ('S\\_%',))
+remaining2 = db_query("SELECT COUNT(*) FROM vendors WHERE name LIKE %s", ('S_%',))
 check('廠商清理完成', remaining2[0][0] == 0)
 
 # ============================================================
