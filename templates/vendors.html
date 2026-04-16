@@ -68,7 +68,7 @@
     </thead>
     <tbody>
         {% for v in vendors %}
-        <tr>
+        <tr class="{{ 'row-disabled' if not v[6] }}">
             {% if user.role == 'admin' %}
                 <td><input form="vedit-{{ v[0] }}" type="text" name="name" value="{{ v[1] }}" class="inline-edit-input" required></td>
                 <td><input form="vedit-{{ v[0] }}" type="text" name="bank_name" value="{{ v[2] }}" class="inline-edit-input" required></td>
@@ -80,9 +80,11 @@
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <button type="submit" class="btn-save">儲存</button>
                     </form>
-                    <form method="POST" action="/vendors/delete/{{ v[0] }}" onsubmit="return confirm('確定要刪除此廠商嗎？')">
+                    <form method="POST" action="/vendors/toggle/{{ v[0] }}">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <button type="submit" class="btn-delete">刪除</button>
+                        <button type="submit" class="btn-small {{ 'btn-danger' if v[6] else 'btn-success' }}">
+                            {{ '停用' if v[6] else '啟用' }}
+                        </button>
                     </form>
                 </td>
             {% else %}
@@ -100,13 +102,15 @@
 <!-- ===== Mobile ===== -->
 <div class="mobile-cards">
     {% for v in vendors %}
-    <div class="card">
+    <div class="card {{ 'row-disabled' if not v[6] }}">
         <div class="card-header">
             <span class="card-date">{{ v[1] }}</span>
             {% if user.role == 'admin' %}
-            <form method="POST" action="/vendors/delete/{{ v[0] }}" onsubmit="return confirm('確定要刪除此廠商嗎？')">
+            <form method="POST" action="/vendors/toggle/{{ v[0] }}">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <button type="submit" class="btn-delete">刪除</button>
+                <button type="submit" class="btn-small {{ 'btn-danger' if v[6] else 'btn-success' }}">
+                    {{ '停用' if v[6] else '啟用' }}
+                </button>
             </form>
             {% endif %}
         </div>

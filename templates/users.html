@@ -4,6 +4,10 @@
 <a href="/" class="back-link">&larr; 返回</a>
 <h1>帳號管理</h1>
 
+{% if error %}
+<div class="error-banner">{{ error }}</div>
+{% endif %}
+
 <div class="bento-grid">
 <div class="bento-cell bento-cell--full">
     <h2>新增帳號</h2>

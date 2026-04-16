@@ -31,8 +31,17 @@ def _generate_case_id(cur):
     return f'{prefix}001'
 
 
+def _d(val):
+    """將任意數值安全轉為 Decimal，None 視為 0"""
+    if val is None:
+        return Decimal('0')
+    if isinstance(val, Decimal):
+        return val
+    return Decimal(str(val))
+
+
 def _get_project_summary(cur, project_id):
-    """計算案場損益摘要"""
+    """計算案場損益摘要（全程 Decimal 精度）"""
     cur.execute("SELECT * FROM projects WHERE id = %s", (project_id,))
     row = cur.fetchone()
     if not row:
@@ -40,26 +49,26 @@ def _get_project_summary(cur, project_id):
     col_names = [desc[0] for desc in cur.description]
     p = dict(zip(col_names, row))
 
-    original_contract = (p['system_furniture_amount'] or 0) + (p['non_system_furniture_amount'] or 0)
+    original_contract = _d(p['system_furniture_amount']) + _d(p['non_system_furniture_amount'])
 
     cur.execute("SELECT COALESCE(SUM(amount), 0) FROM project_adjustments WHERE project_id = %s", (project_id,))
-    net_adjustment = cur.fetchone()[0]
+    net_adjustment = _d(cur.fetchone()[0])
 
     cur.execute("SELECT COALESCE(SUM(amount), 0) FROM project_discounts WHERE project_id = %s", (project_id,))
-    total_discount = cur.fetchone()[0]
+    total_discount = _d(cur.fetchone()[0])
 
-    tax_amount = p['tax_amount'] or 0
+    tax_amount = _d(p['tax_amount'])
     settlement_price = original_contract + net_adjustment + tax_amount - total_discount
 
-    deposit_amount = p['deposit_amount'] or 0
-    deposit_refund = p['deposit_refund'] or 0
+    deposit_amount = _d(p['deposit_amount'])
+    deposit_refund = _d(p['deposit_refund'])
     deposit_deduction = deposit_amount - deposit_refund
 
     cur.execute("""
         SELECT COALESCE(SUM(amount), 0) FROM project_payments
         WHERE project_id = %s AND is_confirmed = TRUE
     """, (project_id,))
-    total_received = cur.fetchone()[0]
+    total_received = _d(cur.fetchone()[0])
     remaining_balance = settlement_price - total_received
 
     cur.execute("""
@@ -67,20 +76,20 @@ def _get_project_summary(cur, project_id):
         JOIN cost_categories cc ON pc.category_id = cc.id
         WHERE pc.project_id = %s AND cc.cost_type = 'system'
     """, (project_id,))
-    cost_system = cur.fetchone()[0]
+    cost_system = _d(cur.fetchone()[0])
 
     cur.execute("""
         SELECT COALESCE(SUM(pc.amount), 0) FROM project_costs pc
         JOIN cost_categories cc ON pc.category_id = cc.id
         WHERE pc.project_id = %s AND cc.cost_type = 'non_system'
     """, (project_id,))
-    cost_non_system = cur.fetchone()[0]
+    cost_non_system = _d(cur.fetchone()[0])
 
     total_cost = cost_system + cost_non_system
     profit = (original_contract + net_adjustment + total_discount + deposit_deduction) - total_cost
 
-    profit_share_pct = p['profit_share_pct'] or 0
-    designer_bonus = profit * profit_share_pct / 100
+    profit_share_pct = _d(p['profit_share_pct'])
+    designer_bonus = profit * profit_share_pct / Decimal('100')
     company_profit = profit - designer_bonus
 
     # 出帳差異
@@ -90,8 +99,8 @@ def _get_project_summary(cur, project_id):
         cur.execute("SELECT amount FROM reports WHERE id = %s", (p['bonus_report_id'],))
         rpt = cur.fetchone()
         if rpt:
-            disbursed_amount = rpt[0]
-            bonus_diff = designer_bonus - Decimal(str(disbursed_amount))
+            disbursed_amount = _d(rpt[0])
+            bonus_diff = designer_bonus - disbursed_amount
 
     return {
         'original_contract': original_contract,

@@ -375,7 +375,8 @@
             </button>
         </form>
 
-        <form method="POST" action="/projects/{{ project.id }}/bonus-disburse" class="inline-form">
+        <form method="POST" action="/projects/{{ project.id }}/bonus-disburse" class="inline-form"
+              onsubmit="return confirm('確定要出帳獎金 {{ '{:,.0f}'.format(summary.designer_bonus) }} 元？此操作將建立報帳紀錄，無法撤銷。');">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button type="submit" class="btn btn-primary"
                     {{ 'disabled' if not project.bonus_checked or project.bonus_disbursed }}>

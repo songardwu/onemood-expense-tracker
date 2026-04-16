@@ -4,8 +4,17 @@
 {% block content %}
 <h1>出帳管理</h1>
 
-{% if request.args.get('error') == 'invoice_dup' %}
+{% set err = request.args.get('error') %}
+{% if err == 'invoice_dup' %}
 <div class="error-banner">發票號碼重複，請確認是否重複請款。</div>
+{% elif err == 'missing_fields' %}
+<div class="error-banner">欄位不完整，請確認必填欄位。</div>
+{% elif err == 'invalid_category' %}
+<div class="error-banner">款項分類不正確。</div>
+{% elif err == 'invalid_method' %}
+<div class="error-banner">匯款方式不正確。</div>
+{% elif err == 'invalid_amount' %}
+<div class="error-banner">請款金額必須為正數。</div>
 {% endif %}
 
 <div class="bento-grid">

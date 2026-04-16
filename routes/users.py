@@ -19,7 +19,16 @@ def user_list():
     """)
     users = cur.fetchall()
     cur.close()
-    return render_template('users.html', users=users, user=user)
+
+    error = request.args.get('error')
+    error_msg = None
+    if error == 'missing':
+        error_msg = '所有欄位皆為必填'
+    elif error == 'short_pw':
+        error_msg = '密碼至少需 6 字元'
+    elif error == 'duplicate':
+        error_msg = '此帳號名稱已存在'
+    return render_template('users.html', users=users, user=user, error=error_msg)
 
 
 @bp.route('/users/create', methods=['POST'])
@@ -30,8 +39,10 @@ def user_create():
     password = request.form.get('password', '').strip()
     role = request.form.get('role', 'designer')
 
-    if not username or not display_name or not password or len(password) < 6:
-        return redirect('/users')
+    if not username or not display_name or not password:
+        return redirect('/users?error=missing')
+    if len(password) < 6:
+        return redirect('/users?error=short_pw')
     if role not in ('designer', 'admin'):
         role = 'designer'
 
@@ -46,6 +57,8 @@ def user_create():
         conn.commit()
     except psycopg2.errors.UniqueViolation:
         conn.rollback()
+        cur.close()
+        return redirect('/users?error=duplicate')
     cur.close()
     return redirect('/users')
 

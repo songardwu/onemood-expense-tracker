@@ -77,6 +77,13 @@ def index():
 
     where_sql, params, filters = _build_filter_clause(user)
 
+    # 總筆數（分頁用）
+    join_sql = "JOIN users u ON r.user_id = u.id" if user['role'] == 'admin' else ""
+    cur.execute(f"SELECT COUNT(*) FROM reports r {join_sql} {where_sql}", params)
+    total_count = cur.fetchone()[0]
+    page, per_page, offset, total_pages = get_page_info(total_count, per_page=50)
+
+    # 分頁資料
     if user['role'] == 'admin':
         cur.execute(f"""
             SELECT r.id, r.vendor, r.vendor_type, r.amount, r.category,
@@ -89,7 +96,8 @@ def index():
             LEFT JOIN users u2 ON r.updated_by = u2.id
             {where_sql}
             ORDER BY r.invoice_date DESC, r.created_at DESC
-        """, params)
+            LIMIT %s OFFSET %s
+        """, params + [per_page, offset])
     else:
         cur.execute(f"""
             SELECT r.id, r.vendor, r.vendor_type, r.amount, r.category,
@@ -100,13 +108,10 @@ def index():
             FROM reports r
             {where_sql}
             ORDER BY r.invoice_date DESC, r.created_at DESC
-        """, params)
+            LIMIT %s OFFSET %s
+        """, params + [per_page, offset])
 
-    all_rows = cur.fetchall()
-
-    # 分頁
-    page, per_page, offset, total_pages = get_page_info(len(all_rows), per_page=50)
-    rows = all_rows[offset:offset + per_page]
+    rows = cur.fetchall()
 
     # 案場鎖定狀態（管理員用）
     projects = []
@@ -120,14 +125,19 @@ def index():
         projects = [{'project_no': r[0], 'any_locked': r[1], 'cnt': r[2]}
                     for r in cur.fetchall()]
 
-    # 廠商加總 + 匯款方式分計 + 總計（用全部資料，非分頁後）
+    # 廠商加總 + 匯款方式分計 + 總計（SQL 聚合，不載入全部資料）
+    cur.execute(f"""
+        SELECT r.vendor, r.payment_method, SUM(r.amount)
+        FROM reports r {join_sql} {where_sql}
+        GROUP BY r.vendor, r.payment_method
+    """, params)
     vendor_totals = defaultdict(float)
     method_totals = defaultdict(float)
     grand_total = 0.0
-    for r in all_rows:
-        amt = float(r[3]) if r[3] else 0
-        vendor_totals[r[1]] += amt
-        method_totals[r[16] or '未設定'] += amt
+    for vname, method, amt in cur.fetchall():
+        amt = float(amt) if amt else 0
+        vendor_totals[vname] += amt
+        method_totals[method or '未設定'] += amt
         grand_total += amt
 
     # 相似廠商 / 同帳號標記
@@ -185,7 +195,7 @@ def index():
                            dup_flags={k: list(v) for k, v in dup_flags.items()},
                            vendor_bank_info=vendor_bank_info,
                            page=page, total_pages=total_pages,
-                           total_count=len(all_rows),
+                           total_count=total_count,
                            filters=filters)
 
 
@@ -374,21 +384,21 @@ def update_report(report_id):
 
     if not vendor or not invoice_date or not project_no:
         cur.close()
-        return redirect('/')
+        return redirect('/?error=missing_fields')
     if category not in ('案場成本', '管銷', '獎金'):
         cur.close()
-        return redirect('/')
+        return redirect('/?error=invalid_category')
     if payment_method and payment_method not in ('現金', '公司轉帳', '個帳轉帳'):
         cur.close()
-        return redirect('/')
+        return redirect('/?error=invalid_method')
     try:
         amount = float(amount_str)
         if amount <= 0:
             cur.close()
-            return redirect('/')
+            return redirect('/?error=invalid_amount')
     except (ValueError, TypeError):
         cur.close()
-        return redirect('/')
+        return redirect('/?error=invalid_amount')
 
     # 發票防呆（排除自己）
     if invoice_no:

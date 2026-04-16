@@ -16,8 +16,8 @@ def vendor_list():
     conn = get_conn()
     cur = conn.cursor()
     cur.execute("""
-        SELECT id, name, bank_name, bank_code, account_no, account_name
-        FROM vendors ORDER BY name
+        SELECT id, name, bank_name, bank_code, account_no, account_name, is_active
+        FROM vendors ORDER BY is_active DESC, name
     """)
     vendors = cur.fetchall()
     cur.close()
@@ -107,12 +107,12 @@ def vendor_update(vendor_id):
     return redirect('/vendors')
 
 
-@bp.route('/vendors/delete/<int:vendor_id>', methods=['POST'])
+@bp.route('/vendors/toggle/<int:vendor_id>', methods=['POST'])
 @admin_required
-def vendor_delete(vendor_id):
+def vendor_toggle(vendor_id):
     conn = get_conn()
     cur = conn.cursor()
-    cur.execute("DELETE FROM vendors WHERE id = %s", (vendor_id,))
+    cur.execute("UPDATE vendors SET is_active = NOT is_active WHERE id = %s", (vendor_id,))
     conn.commit()
     cur.close()
     return redirect('/vendors')
@@ -231,7 +231,7 @@ def vendor_bank():
     cur = conn.cursor()
     cur.execute("""
         SELECT bank_name, bank_code, account_no, account_name
-        FROM vendors WHERE name = %s
+        FROM vendors WHERE name = %s AND is_active = TRUE
     """, (name,))
     row = cur.fetchone()
     cur.close()
