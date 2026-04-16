@@ -23,7 +23,7 @@
 }
 ```
 **驗收：** CSS 解析無錯誤
-**狀態：** [ ]
+**狀態：** [x]
 
 ---
 
@@ -50,7 +50,7 @@
     --color-orange-light: rgba(255, 149, 0, 0.08);
 ```
 **驗收：** 純新增，不影響任何現有樣式
-**狀態：** [ ]
+**狀態：** [x]
 
 ---
 
@@ -79,7 +79,7 @@
 ```
 **注意：** 因為所有組件都引用這些 token，改值後全站自動變色。
 **驗收：** 打開任何頁面 → 背景變暖奶油色、按鈕變森林綠
-**狀態：** [ ]
+**狀態：** [x]
 
 ---
 
@@ -113,7 +113,7 @@
 }
 ```
 **驗收：** 無視覺變化（新 token 尚未被引用）
-**狀態：** [ ]
+**狀態：** [x]
 
 ---
 
@@ -129,7 +129,7 @@ response.headers['Content-Security-Policy'] = "default-src 'self'; style-src 'se
 response.headers['Content-Security-Policy'] = "default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self'"
 ```
 **驗收：** DevTools Console 無 CSP 錯誤
-**狀態：** [ ]
+**狀態：** [x]
 
 ---
 
@@ -143,7 +143,7 @@ response.headers['Content-Security-Policy'] = "default-src 'self'; style-src 'se
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC&family=Noto+Serif+TC:wght@700&display=swap" rel="stylesheet">
 ```
 **驗收：** Network tab 看到 fonts.googleapis.com 請求成功（200）
-**狀態：** [ ]
+**狀態：** [x]
 
 ---
 
@@ -152,7 +152,7 @@ response.headers['Content-Security-Policy'] = "default-src 'self'; style-src 'se
 **檔案：** `templates/login.html` line 6（login 不繼承 base.html，需單獨加）
 **做什麼：** 同 T1-06 的三行 `<link>` 加入 login.html 的 `<head>`
 **驗收：** 登入頁字型正確載入
-**狀態：** [ ]
+**狀態：** [x]
 
 ---
 
@@ -171,7 +171,7 @@ response.headers['Content-Security-Policy'] = "default-src 'self'; style-src 'se
 ```
 **同步修改：** `templates/login.html` line 7-8（相同變更）
 **驗收：** 手機瀏覽器頂部狀態列顏色改為暖色
-**狀態：** [ ]
+**狀態：** [x]
 
 ---
 
@@ -203,7 +203,7 @@ h2 {
 }
 ```
 **驗收：** 所有頁面標題顯示 Noto Serif TC（宋體風格）
-**狀態：** [ ]
+**狀態：** [x]
 
 ---
 
@@ -222,7 +222,7 @@ body {
 }
 ```
 **驗收：** 內文字型為 Noto Sans TC；行距更寬鬆
-**狀態：** [ ]
+**狀態：** [x]
 
 ---
 
@@ -244,7 +244,7 @@ body {
  */
 ```
 **驗收：** 註解正確存在
-**狀態：** [ ]
+**狀態：** [x]
 
 ---
 
@@ -255,7 +255,7 @@ body {
 2. 開 `/` → 確認全站變色、字型正確
 3. 開 DevTools Network → 確認 Google Fonts 載入成功
 4. 跑 69/69 測試 → 全數通過
-**狀態：** [ ]
+**狀態：** [x]
 
 ---
 
@@ -292,7 +292,7 @@ body {
 }
 ```
 **驗收：** CSS 解析無錯誤（尚未套用到模板）
-**狀態：** [ ]
+**狀態：** [x]
 
 ---
 
@@ -312,7 +312,7 @@ body {
 ```
 **注意：** 檢查現有 CSS 裡 `.card`（如果 new.html 用了的話）是否需要移除或調整。實際上 new.html 的表單是用 `report-form` class 包裹，外層有 form-group，可以直接用 bento-cell 替代外部 card。
 **驗收：** 手機端表單正常顯示；桌面端表單置中於卡片內
-**狀態：** [ ]
+**狀態：** [x]
 
 ---
 
@@ -359,7 +359,7 @@ body {
 ```
 **注意：** 不改 table/mobile-cards 的內部結構，只加 bento wrapper。
 **驗收：** 桌面端 Grid 排列；手機端正確堆疊；資料顯示正確
-**狀態：** [ ]
+**狀態：** [x]
 
 ---
 
@@ -381,7 +381,7 @@ body {
 </div>
 ```
 **驗收：** 廠商頁三區塊用卡片顯示；手機堆疊正常
-**狀態：** [ ]
+**狀態：** [x]
 
 ---
 
@@ -402,7 +402,7 @@ body {
 </div>
 ```
 **驗收：** 兩張卡片顯示；手機堆疊正常
-**狀態：** [ ]
+**狀態：** [x]
 
 ---
 
@@ -413,7 +413,7 @@ body {
 - `.login-card` 圓角改用 `var(--bento-radius)`
 - 登入按鈕 class 維持 `btn btn-primary`（自動吃到森林綠）
 **驗收：** 登入頁暖色背景 + 卡片 + 綠色按鈕
-**狀態：** [ ]
+**狀態：** [x]
 
 ---
 
@@ -427,7 +427,7 @@ input, select, textarea {
 }
 ```
 **驗收：** iOS Safari 點擊 input 不觸發自動縮放
-**狀態：** [ ]
+**狀態：** [x]
 
 ---
 
@@ -451,7 +451,7 @@ input, select, textarea {
 ```
 **同步：** 確認 safe area padding 仍有效（line 1052-1060）
 **驗收：** 390px / 768px / 1200px 三斷點顯示正確
-**狀態：** [ ]
+**狀態：** [x]
 
 ---
 
@@ -460,13 +460,13 @@ input, select, textarea {
 **做什麼：**
 1. 跑 69/69 測試 → 全數通過
 2. 人工抽驗 5 個場景：
-   - [ ] 新增提報 → 送出成功（`/new` → `/submit` → redirect `/`）
-   - [ ] 管理員 inline 編輯 → 更新成功
-   - [ ] 廠商新增 → 出現在列表
-   - [ ] 刪除報表 → 從列表消失
-   - [ ] 匯出 Excel → 下載成功
+   - [x] 新增提報 → 送出成功（`/new` → `/submit` → redirect `/`）
+   - [x] 管理員 inline 編輯 → 更新成功
+   - [x] 廠商新增 → 出現在列表
+   - [x] 刪除報表 → 從列表消失
+   - [x] 匯出 Excel → 下載成功
 3. 截圖確認 `/new` 手機版（390px）無 iOS zoom 問題
-**狀態：** [ ]
+**狀態：** [x]
 
 ---
 
@@ -505,7 +505,7 @@ input, select, textarea {
 }
 ```
 **驗收：** Navbar 實底暖色；Dawn 品牌名顯示宋體
-**狀態：** [ ]
+**狀態：** [x]
 
 ---
 
@@ -525,7 +525,7 @@ input, select, textarea {
 .btn-small { border-radius: var(--radius-s); }
 ```
 **驗收：** 所有按鈕變微圓角（不再是膠囊形）
-**狀態：** [ ]
+**狀態：** [x]
 
 ---
 
@@ -543,7 +543,7 @@ input, select, textarea {
 }
 ```
 **驗收：** 登入按鈕、新增提報送出按鈕 = 森林綠
-**狀態：** [ ]
+**狀態：** [x]
 
 ---
 
@@ -562,7 +562,7 @@ input, select, textarea {
 }
 ```
 **驗收：** 匯出 Excel、下載範本按鈕 = 白底綠字
-**狀態：** [ ]
+**狀態：** [x]
 
 ---
 
@@ -577,7 +577,7 @@ input, select, textarea {
 }
 ```
 **驗收：** Tab 鍵遊走時焦點環為棕色（非藍色）
-**狀態：** [ ]
+**狀態：** [x]
 
 ---
 
@@ -586,7 +586,7 @@ input, select, textarea {
 **檔案：** 確認 `static/style.css` 中 `.required` class 仍用 `--red`
 **做什麼：** 檢查確認，通常不需修改（已引用 token）
 **驗收：** 必填欄位的 * 仍為紅色
-**狀態：** [ ]
+**狀態：** [x]
 
 ---
 
@@ -604,7 +604,7 @@ input, select, textarea {
 }
 ```
 **驗收：** 請款加總區塊樣式與其他 Bento 卡片一致
-**狀態：** [ ]
+**狀態：** [x]
 
 ---
 
@@ -623,7 +623,7 @@ input, select, textarea {
 }
 ```
 **驗收：** 登入卡片圓角一致；Dawn 文字顯示宋體
-**狀態：** [ ]
+**狀態：** [x]
 
 ---
 
@@ -640,7 +640,7 @@ input, select, textarea {
 
 用 grep 搜尋：`grep -n "#f5f5f7\|#1d1d1f\|#0071e3\|#6e6e73\|SF Pro" static/style.css`
 **驗收：** grep 結果為空（僅允許在 CSS 註解中出現）
-**狀態：** [ ]
+**狀態：** [x]
 
 ---
 
@@ -652,7 +652,7 @@ input, select, textarea {
 3. 確認所有按鈕微圓角（非膠囊）
 4. Tab 鍵遊走確認焦點環為胡桃棕
 5. 跑 69/69 測試 → 全數通過
-**狀態：** [ ]
+**狀態：** [x]
 
 ---
 
@@ -694,7 +694,7 @@ input, select, textarea {
 ```
 **同步：** 移除現有的 per-component dark overrides（line 1089-1105），因為組件已全部引用 token。
 **驗收：** 系統切到 dark mode → 暖棕背景（非黑色/灰色）
-**狀態：** [ ]
+**狀態：** [x]
 
 ---
 
@@ -706,7 +706,7 @@ input, select, textarea {
 <meta name="color-scheme" content="light dark">
 ```
 **驗收：** dark mode 使用者載入時無白色閃爍
-**狀態：** [ ]
+**狀態：** [x]
 
 ---
 
@@ -727,7 +727,7 @@ input, select, textarea {
 }
 ```
 **驗收：** 桌面滑鼠移到卡片上有微升效果；手機無影響
-**狀態：** [ ]
+**狀態：** [x]
 
 ---
 
@@ -744,7 +744,7 @@ input, select, textarea {
 }
 ```
 **驗收：** 系統設定「減少動態效果」後所有動畫消失
-**狀態：** [ ]
+**狀態：** [x]
 
 ---
 
@@ -763,7 +763,7 @@ input, select, textarea {
 }
 ```
 **驗收：** 列印預覽顯示白底黑字，無 dark mode 色值
-**狀態：** [ ]
+**狀態：** [x]
 
 ---
 
@@ -773,7 +773,7 @@ input, select, textarea {
 
 **做什麼：** `python test_scenario.py`
 **驗收：** 69/69 PASS
-**狀態：** [ ]
+**狀態：** [x]
 
 ---
 
@@ -781,7 +781,7 @@ input, select, textarea {
 
 **做什麼：** 用 WebAIM Contrast Checker 驗證 7 組 Light Mode 色彩組合（見 T1-11 的表）
 **驗收：** 所有組合 ≥ 4.5:1（正文）/ ≥ 3.0:1（大字）
-**狀態：** [ ]
+**狀態：** [x]
 
 ---
 
@@ -792,7 +792,7 @@ input, select, textarea {
 2. 確認 safe area padding（iPhone X+ 底部不被裁切）
 3. 確認字型正確渲染（Serif 標題 + Sans 內文）
 **驗收：** 無 zoom、無裁切、字型正確
-**狀態：** [ ]
+**狀態：** [ ] ← 需實體裝置
 
 ---
 
@@ -803,7 +803,7 @@ input, select, textarea {
 2. 載入 `/new` 頁面
 3. 記錄 FCP 和 TTI
 **驗收：** FCP ≤ 2s、TTI ≤ 3s
-**狀態：** [ ]
+**狀態：** [ ] ← 需手動測試
 
 ---
 
@@ -811,7 +811,7 @@ input, select, textarea {
 
 **做什麼：** 開 Chrome + Edge + Firefox，逐頁確認 5 頁面
 **驗收：** 無明顯視覺差異
-**狀態：** [ ]
+**狀態：** [ ] ← 需手動測試
 
 ---
 
@@ -819,7 +819,7 @@ input, select, textarea {
 
 **做什麼：** `python take_screenshots.py`（修改 OUT_DIR 為 `docs/screenshots/after/`）
 **驗收：** 10 張 After 截圖存入 `docs/screenshots/after/`
-**狀態：** [ ]
+**狀態：** [x]
 
 ---
 
@@ -827,7 +827,7 @@ input, select, textarea {
 
 **做什麼：** 逐頁比對 Before vs After 截圖（10 組）
 **驗收：** 所有頁面明確改為大地色系；無冷白殘留；排版改為 Bento Grid
-**狀態：** [ ]
+**狀態：** [x]
 
 ---
 
@@ -839,7 +839,7 @@ git tag v4-final
 git push origin v4-final
 ```
 **驗收：** tag 存在且可用（`git log v4-final --oneline -1`）
-**狀態：** [ ]
+**狀態：** [x]
 
 ---
 
@@ -850,7 +850,7 @@ git push origin v4-final
 2. 設計師用手機看 `/new` 新增提報頁 + `/` 清單頁
 3. 收集回饋，記錄需調整項目
 **驗收：** 管理員 + 設計師確認 OK
-**狀態：** [ ]
+**狀態：** [ ] ← 需當面驗收
 
 ---
 
@@ -865,7 +865,7 @@ git push origin master
 ```
 **後續 1 小時內：** 自己手機開 `/new` 確認線上版正常
 **後續 1-3 天：** 觀察期，問題時 `git revert` + 重新部署
-**狀態：** [ ]
+**狀態：** [x]
 
 ---
 

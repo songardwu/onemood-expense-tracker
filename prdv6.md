@@ -604,29 +604,29 @@ Phase 1 (Token + 字型) ─MUST─→ Phase 2 (Bento Grid) ─MUST─→ Phase 
 
 ### MUST（上線門檻）
 
-- [ ] 全站色彩使用暖大地色系，無冷白殘留
-- [ ] 標題使用 Noto Serif TC，內文使用 Noto Sans TC
-- [ ] 全頁面 Bento Grid 排版（清單、新增、廠商、帳號管理）
-- [ ] 按鈕微圓角 4-6px + 0.3s transition
-- [ ] Light Mode 所有色彩組合通過 WCAG AA 對比度
-- [ ] 手機端（< 768px）完美自適應
-- [ ] iPhone safe area 正常
-- [ ] 字型 `font-display: swap` 無白屏
-- [ ] iOS Safari 表單無自動縮放
-- [ ] 4G 行動網路 FCP ≤ 2s、TTI ≤ 3s
-- [ ] CSP header 允許 Google Fonts 載入
-- [ ] 69/69 功能測試全數通過（純 UI 不影響功能）
-- [ ] `git tag v4-final` 已標記（回滾保護）
-- [ ] 管理員 + 設計師實機驗收通過（UAT）
-- [ ] 改版前後對比截圖已產生（5 頁 × 桌面/手機 = 10 組）
+- [x] 全站色彩使用暖大地色系，無冷白殘留
+- [x] 標題使用 Noto Serif TC，內文使用 Noto Sans TC
+- [x] 全頁面 Bento Grid 排版（清單、新增、廠商、帳號管理）
+- [x] 按鈕微圓角 4-6px + 0.3s transition
+- [x] Light Mode 所有色彩組合通過 WCAG AA 對比度
+- [x] 手機端（< 768px）完美自適應
+- [ ] iPhone safe area 正常 ← 需實機驗證
+- [x] 字型 `font-display: swap` 無白屏
+- [x] iOS Safari 表單無自動縮放（input font-size ≥ 16px 已設定）
+- [ ] 4G 行動網路 FCP ≤ 2s、TTI ≤ 3s ← 需手動測試
+- [x] CSP header 允許 Google Fonts 載入
+- [x] 69/69 功能測試全數通過（純 UI 不影響功能）
+- [x] `git tag v4-final` 已標記（回滾保護）
+- [ ] 管理員 + 設計師實機驗收通過（UAT） ← 需當面驗收
+- [x] 改版前後對比截圖已產生（5 頁 × 桌面/手機 = 10 組）
 
 ### SHOULD（加分項，不阻擋上線）
 
-- [ ] Dark Mode 大地色暗色版正常運作（溫暖，非灰色）
-- [ ] Dark Mode 所有色彩組合通過 WCAG AA 對比度
-- [ ] `prefers-reduced-motion` 時無動畫
-- [ ] 微互動（hover lift / press feedback / entrance stagger）
-- [ ] 列印樣式正常（強制 light mode）
+- [x] Dark Mode 大地色暗色版正常運作（溫暖，非灰色）
+- [ ] Dark Mode 所有色彩組合通過 WCAG AA 對比度 ← 需實機驗證
+- [x] `prefers-reduced-motion` 時無動畫
+- [x] 微互動（hover lift / press feedback / entrance stagger）
+- [x] 列印樣式正常（強制 light mode）
 
 ---
 
