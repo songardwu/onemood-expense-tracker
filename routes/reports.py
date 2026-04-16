@@ -20,6 +20,54 @@ bp = Blueprint('reports', __name__)
 # =====================
 # GET / — 清單頁
 # =====================
+def _build_filter_clause(user):
+    """從 request.args 建構 WHERE 子句與參數，回傳 (where_sql, params, filters_dict)"""
+    conditions = []
+    params = []
+    filters = {}
+
+    # 日期區間
+    date_from = request.args.get('date_from', '').strip()
+    date_to = request.args.get('date_to', '').strip()
+    if date_from:
+        conditions.append("r.invoice_date >= %s")
+        params.append(date_from)
+        filters['date_from'] = date_from
+    if date_to:
+        conditions.append("r.invoice_date <= %s")
+        params.append(date_to)
+        filters['date_to'] = date_to
+
+    # 廠商名稱（模糊搜尋）
+    vendor_q = request.args.get('vendor', '').strip()
+    if vendor_q:
+        conditions.append("r.vendor ILIKE %s")
+        params.append(f'%{vendor_q}%')
+        filters['vendor'] = vendor_q
+
+    # 案場名稱（模糊搜尋）
+    project_q = request.args.get('project_no', '').strip()
+    if project_q:
+        conditions.append("r.project_no ILIKE %s")
+        params.append(f'%{project_q}%')
+        filters['project_no'] = project_q
+
+    # 分類
+    category_q = request.args.get('category', '').strip()
+    if category_q and category_q in ('案場成本', '管銷', '獎金'):
+        conditions.append("r.category = %s")
+        params.append(category_q)
+        filters['category'] = category_q
+
+    # 非 admin 只看自己
+    if user['role'] != 'admin':
+        conditions.append("r.user_id = %s")
+        params.append(user['id'])
+
+    where_sql = (" WHERE " + " AND ".join(conditions)) if conditions else ""
+    return where_sql, params, filters
+
+
 @bp.route('/')
 @login_required
 def index():
@@ -27,8 +75,10 @@ def index():
     conn = get_conn()
     cur = conn.cursor()
 
+    where_sql, params, filters = _build_filter_clause(user)
+
     if user['role'] == 'admin':
-        cur.execute("""
+        cur.execute(f"""
             SELECT r.id, r.vendor, r.vendor_type, r.amount, r.category,
                    r.invoice_no, r.invoice_date, r.remit_date, r.project_no,
                    r.stage, r.created_at, u.display_name,
@@ -37,19 +87,20 @@ def index():
             FROM reports r
             JOIN users u ON r.user_id = u.id
             LEFT JOIN users u2 ON r.updated_by = u2.id
+            {where_sql}
             ORDER BY r.invoice_date DESC, r.created_at DESC
-        """)
+        """, params)
     else:
-        cur.execute("""
+        cur.execute(f"""
             SELECT r.id, r.vendor, r.vendor_type, r.amount, r.category,
                    r.invoice_no, r.invoice_date, r.remit_date, r.project_no,
                    r.stage, r.created_at, NULL as display_name,
                    r.is_locked, NULL as updated_by, NULL as updated_at,
                    NULL as updater_name, r.payment_method
             FROM reports r
-            WHERE r.user_id = %s
+            {where_sql}
             ORDER BY r.invoice_date DESC, r.created_at DESC
-        """, (user['id'],))
+        """, params)
 
     all_rows = cur.fetchall()
 
@@ -134,7 +185,8 @@ def index():
                            dup_flags={k: list(v) for k, v in dup_flags.items()},
                            vendor_bank_info=vendor_bank_info,
                            page=page, total_pages=total_pages,
-                           total_count=len(all_rows))
+                           total_count=len(all_rows),
+                           filters=filters)
 
 
 # =====================
@@ -445,8 +497,10 @@ def export():
     conn = get_conn()
     is_admin = user['role'] == 'admin'
 
+    where_sql, params, filters = _build_filter_clause(user)
+
     if is_admin:
-        df = pd.read_sql("""
+        df = pd.read_sql(f"""
             SELECT u.display_name as reporter, r.invoice_date, r.vendor_type,
                    r.vendor, r.project_no, r.stage, r.category, r.amount,
                    r.invoice_no, r.remit_date, r.payment_method,
@@ -454,18 +508,19 @@ def export():
             FROM reports r
             JOIN users u ON r.user_id = u.id
             LEFT JOIN vendors v ON r.vendor = v.name
+            {where_sql}
             ORDER BY r.vendor_type, r.vendor, r.invoice_date
-        """, conn)
+        """, conn, params=params or None)
     else:
-        df = pd.read_sql("""
+        df = pd.read_sql(f"""
             SELECT r.invoice_date, r.vendor_type, r.vendor, r.project_no, r.stage,
                    r.category, r.amount, r.invoice_no, r.remit_date, r.payment_method,
                    v.bank_name, v.bank_code, v.account_no, v.account_name
             FROM reports r
             LEFT JOIN vendors v ON r.vendor = v.name
-            WHERE r.user_id = %s
+            {where_sql}
             ORDER BY r.vendor_type, r.vendor, r.invoice_date
-        """, conn, params=(user['id'],))
+        """, conn, params=params or None)
 
     if df.empty:
         return redirect('/')
@@ -477,11 +532,12 @@ def export():
     output.seek(0)
 
     today_str = date.today().strftime('%Y%m%d')
+    suffix = '_篩選' if filters else ''
     return send_file(
         output,
         mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         as_attachment=True,
-        download_name=f'出帳報表_{today_str}.xlsx'
+        download_name=f'出帳報表_{today_str}{suffix}.xlsx'
     )
 
 

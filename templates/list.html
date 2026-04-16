@@ -12,8 +12,48 @@
 <div class="bento-cell bento-cell--full bento-cell--transparent">
 <div class="actions">
     <a href="/new" class="btn btn-primary">+ 新增提報</a>
-    <a href="/export" class="btn btn-secondary">匯出 Excel</a>
+    <a href="/export?{{ request.query_string.decode() }}" class="btn btn-secondary">匯出 Excel</a>
 </div>
+
+<!-- ===== 篩選面板 ===== -->
+<details class="filter-panel" {{ 'open' if filters }}>
+    <summary>篩選條件{% if filters %} (已套用){% endif %}</summary>
+    <form method="GET" action="/" class="filter-form">
+        <div class="filter-row">
+            <div class="filter-group">
+                <label for="f-date-from">發票日期（起）</label>
+                <input type="date" id="f-date-from" name="date_from" value="{{ filters.get('date_from', '') }}">
+            </div>
+            <div class="filter-group">
+                <label for="f-date-to">發票日期（迄）</label>
+                <input type="date" id="f-date-to" name="date_to" value="{{ filters.get('date_to', '') }}">
+            </div>
+            <div class="filter-group">
+                <label for="f-vendor">廠商名稱</label>
+                <input type="text" id="f-vendor" name="vendor" value="{{ filters.get('vendor', '') }}" placeholder="模糊搜尋">
+            </div>
+            <div class="filter-group">
+                <label for="f-project">案場名稱</label>
+                <input type="text" id="f-project" name="project_no" value="{{ filters.get('project_no', '') }}" placeholder="模糊搜尋">
+            </div>
+            <div class="filter-group">
+                <label for="f-category">分類</label>
+                <select id="f-category" name="category">
+                    <option value="">全部</option>
+                    <option value="案場成本" {{ 'selected' if filters.get('category') == '案場成本' }}>案場成本</option>
+                    <option value="管銷" {{ 'selected' if filters.get('category') == '管銷' }}>管銷</option>
+                    <option value="獎金" {{ 'selected' if filters.get('category') == '獎金' }}>獎金</option>
+                </select>
+            </div>
+        </div>
+        <div class="filter-actions">
+            <button type="submit" class="btn btn-primary">套用篩選</button>
+            {% if filters %}
+            <a href="/" class="btn btn-secondary">清除篩選</a>
+            {% endif %}
+        </div>
+    </form>
+</details>
 
 {% if user.role == 'admin' and projects %}
 <details class="project-lock-panel">

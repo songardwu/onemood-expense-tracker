@@ -34,6 +34,10 @@ def vendor_list():
         error_msg = '僅支援 .xlsx 或 .csv 格式'
     elif error == 'badcolumns':
         error_msg = '檔案欄位不符，請使用範本格式'
+    elif error == 'toolarge':
+        error_msg = '檔案大小超過 2MB 限制'
+    elif error == 'toomany':
+        error_msg = '匯入筆數超過 500 筆上限'
 
     import_result = session.pop('import_result', None)
     return render_template('vendors.html', vendors=vendors, user=user,
@@ -41,7 +45,7 @@ def vendor_list():
 
 
 @bp.route('/vendors/create', methods=['POST'])
-@login_required
+@admin_required
 def vendor_create():
     user = get_current_user()
     name = request.form.get('name', '').strip()
@@ -127,12 +131,19 @@ def vendor_template():
 
 
 @bp.route('/vendors/import', methods=['POST'])
-@login_required
+@admin_required
 def vendor_import():
     user = get_current_user()
     file = request.files.get('file')
     if not file or not file.filename:
         return redirect('/vendors?error=nofile')
+
+    # 檔案大小限制：2MB
+    file.seek(0, 2)
+    size = file.tell()
+    file.seek(0)
+    if size > 2 * 1024 * 1024:
+        return redirect('/vendors?error=toolarge')
 
     filename = file.filename.lower()
     try:
@@ -144,6 +155,10 @@ def vendor_import():
             return redirect('/vendors?error=badformat')
     except Exception:
         return redirect('/vendors?error=badformat')
+
+    # 行數限制：500 筆
+    if len(df) > 500:
+        return redirect('/vendors?error=toomany')
 
     col_map = {
         '名稱': 'name', '廠商名稱': 'name',

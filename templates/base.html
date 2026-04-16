@@ -32,7 +32,9 @@
             {% if user.role == 'admin' %}
             <a href="/cost-categories" class="nav-link">成本科目</a>
             <a href="/users" class="nav-link">帳號管理</a>
+            <a href="/login-logs" class="nav-link">登入紀錄</a>
             {% endif %}
+            <a href="/change-password" class="nav-link">改密碼</a>
             <form method="POST" action="/logout" class="nav-logout-form">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="nav-link nav-logout-btn">登出</button>

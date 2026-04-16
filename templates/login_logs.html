@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% from "pagination.html" import render as pagination %}
+{% block title %}登入紀錄{% endblock %}
+{% block content %}
+<a href="/" class="back-link">&larr; 返回</a>
+<h1>登入紀錄</h1>
+
+<div class="bento-grid">
+<div class="bento-cell bento-cell--full bento-cell--transparent">
+
+{% if logs %}
+<!-- Desktop -->
+<table class="desktop-table">
+    <thead>
+        <tr>
+            <th scope="col">時間</th>
+            <th scope="col">帳號</th>
+            <th scope="col">姓名</th>
+            <th scope="col">結果</th>
+            <th scope="col">IP</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for log in logs %}
+    <tr>
+        <td>{{ log[0].strftime('%Y-%m-%d %H:%M') if log[0] else '-' }}</td>
+        <td>{{ log[1] }}</td>
+        <td>{{ log[4] or '-' }}</td>
+        <td>
+            {% if log[2] %}
+            <span class="status-badge status-active">成功</span>
+            {% else %}
+            <span class="status-badge" style="background:var(--red-light);color:var(--red);">失敗</span>
+            {% endif %}
+        </td>
+        <td class="text-muted">{{ log[3] or '-' }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+
+<!-- Mobile -->
+<div class="mobile-cards">
+    {% for log in logs %}
+    <div class="card">
+        <div class="card-header">
+            <span class="card-date">{{ log[1] }}</span>
+            {% if log[2] %}
+            <span class="status-badge status-active">成功</span>
+            {% else %}
+            <span class="status-badge" style="background:var(--red-light);color:var(--red);">失敗</span>
+            {% endif %}
+        </div>
+        <div class="card-body">
+            <div class="card-row">
+                <span class="card-label">姓名</span>
+                <span class="card-value">{{ log[4] or '-' }}</span>
+            </div>
+            <div class="card-row">
+                <span class="card-label">時間</span>
+                <span class="card-value">{{ log[0].strftime('%m/%d %H:%M') if log[0] else '-' }}</span>
+            </div>
+            <div class="card-row">
+                <span class="card-label">IP</span>
+                <span class="card-value text-muted">{{ log[3] or '-' }}</span>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+{{ pagination(page, total_pages, total_count) }}
+
+{% else %}
+<p style="text-align:center;color:var(--text-secondary);padding:40px 0;">尚無登入紀錄</p>
+{% endif %}
+
+</div>
+</div>
+{% endblock %}
