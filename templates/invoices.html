@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+{% from "pagination.html" import render as pagination %}
+{% block title %}客戶請款單{% endblock %}
+{% block content %}
+<h1>客戶請款單</h1>
+<p class="page-subtitle">管理對客戶的請款單與收款狀態</p>
+
+<div class="bento-grid">
+<div class="bento-cell bento-cell--full bento-cell--transparent">
+
+{% if user.role == 'admin' %}
+<div class="actions">
+    <a href="/invoices/new" class="btn btn-primary">+ 新增請款單</a>
+</div>
+{% endif %}
+
+<details class="filter-panel" {{ 'open' if filters.year or filters.month or filters.status }}>
+    <summary>篩選條件{% if filters.year or filters.month or filters.status %} (已套用){% endif %}</summary>
+    <form method="GET" action="/invoices" class="filter-form">
+        <div class="filter-row">
+            <div class="filter-group">
+                <label for="f-year">年份</label>
+                <input type="number" id="f-year" name="year" min="2020" max="2099" value="{{ filters.year or '' }}" placeholder="2026">
+            </div>
+            <div class="filter-group">
+                <label for="f-month">月份</label>
+                <select id="f-month" name="month">
+                    <option value="">全部</option>
+                    {% for m in range(1, 13) %}
+                    <option value="{{ m }}" {{ 'selected' if filters.month == m }}>{{ m }} 月</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="f-status">狀態</label>
+                <select id="f-status" name="status">
+                    <option value="">全部</option>
+                    <option value="draft" {{ 'selected' if filters.status == 'draft' }}>草稿</option>
+                    <option value="issued" {{ 'selected' if filters.status == 'issued' }}>已開立</option>
+                    <option value="paid" {{ 'selected' if filters.status == 'paid' }}>已收款</option>
+                    <option value="void" {{ 'selected' if filters.status == 'void' }}>作廢</option>
+                </select>
+            </div>
+        </div>
+        <div class="filter-actions">
+            <button type="submit" class="btn btn-primary">套用篩選</button>
+            {% if filters.year or filters.month or filters.status %}
+            <a href="/invoices" class="btn btn-secondary">清除篩選</a>
+            {% endif %}
+        </div>
+    </form>
+</details>
+</div>
+
+{% if invoices %}
+<div class="bento-cell bento-cell--full bento-cell--transparent">
+<!-- Desktop -->
+<table class="desktop-table">
+    <thead>
+        <tr>
+            <th scope="col">編號</th>
+            <th scope="col">客戶</th>
+            <th scope="col">請款月份</th>
+            <th scope="col">明細</th>
+            <th scope="col" style="text-align:right">金額</th>
+            <th scope="col">狀態</th>
+            <th scope="col">開立</th>
+            <th scope="col"></th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for inv in invoices %}
+        <tr>
+            <td><a href="/invoices/{{ inv[0] }}" style="font-family:var(--font-mono);font-size:12px;">{{ inv[1] }}</a></td>
+            <td>{{ inv[2] }}</td>
+            <td>{{ inv[3] }}/{{ '%02d' % inv[4] }}</td>
+            <td>{{ inv[10] }} 行</td>
+            <td class="amount" style="text-align:right">{{ '{:,.0f}'.format(inv[5]) }}</td>
+            <td>
+                {% if inv[6] == 'draft' %}
+                    <span class="status-badge status-disabled">草稿</span>
+                {% elif inv[6] == 'issued' %}
+                    <span class="badge badge-admin">已開立</span>
+                {% elif inv[6] == 'paid' %}
+                    <span class="status-badge status-active">已收款</span>
+                {% elif inv[6] == 'void' %}
+                    <span class="status-badge" style="background:var(--red-light);color:var(--red);">作廢</span>
+                {% endif %}
+            </td>
+            <td class="text-muted">
+                {% if inv[7] %}{{ inv[9] or '-' }} · {{ inv[7].strftime('%m/%d') }}{% else %}—{% endif %}
+            </td>
+            <td><a href="/invoices/{{ inv[0] }}" class="btn-small">檢視</a></td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<!-- Mobile -->
+<div class="mobile-cards">
+    {% for inv in invoices %}
+    <a href="/invoices/{{ inv[0] }}" class="card" style="text-decoration:none;color:inherit;">
+        <div class="card-header">
+            <span class="card-date" style="font-family:var(--font-mono);font-size:13px;">{{ inv[1] }}</span>
+            {% if inv[6] == 'draft' %}
+                <span class="status-badge status-disabled">草稿</span>
+            {% elif inv[6] == 'issued' %}
+                <span class="badge badge-admin">已開立</span>
+            {% elif inv[6] == 'paid' %}
+                <span class="status-badge status-active">已收款</span>
+            {% elif inv[6] == 'void' %}
+                <span class="status-badge" style="background:var(--red-light);color:var(--red);">作廢</span>
+            {% endif %}
+        </div>
+        <div class="card-body">
+            <div class="card-row"><span class="card-label">客戶</span><span class="card-value">{{ inv[2] }}</span></div>
+            <div class="card-row"><span class="card-label">月份</span><span class="card-value">{{ inv[3] }}/{{ '%02d' % inv[4] }}</span></div>
+            <div class="card-row"><span class="card-label">明細</span><span class="card-value">{{ inv[10] }} 行</span></div>
+            <div class="card-row"><span class="card-label">金額</span><span class="card-value amount">{{ '{:,.0f}'.format(inv[5]) }}</span></div>
+        </div>
+    </a>
+    {% endfor %}
+</div>
+</div>
+
+{{ pagination(page, total_pages, total_count) }}
+
+{% else %}
+<div class="bento-cell bento-cell--full bento-cell--transparent">
+<div class="empty-state">
+    <svg class="empty-state-icon" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="12" y="6" width="36" height="52" rx="3"/>
+        <line x1="20" y1="18" x2="40" y2="18"/>
+        <line x1="20" y1="26" x2="40" y2="26"/>
+        <line x1="20" y1="34" x2="32" y2="34"/>
+        <path d="M20 46 L26 52 L40 38"/>
+    </svg>
+    <p>目前沒有請款單</p>
+    {% if user.role == 'admin' %}
+    <p>點擊「+ 新增請款單」開始</p>
+    {% endif %}
+</div>
+</div>
+{% endif %}
+
+</div>
+{% endblock %}

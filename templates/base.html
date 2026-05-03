@@ -29,6 +29,7 @@
             <span class="nav-user">{{ user.display_name }}</span>
             <a href="/" class="nav-link {{ 'nav-active' if request.path == '/' or request.path.startswith('/new') or request.path.startswith('/export') }}">出帳管理</a>
             <a href="/projects" class="nav-link {{ 'nav-active' if request.path.startswith('/projects') }}">案場管理</a>
+            <a href="/invoices" class="nav-link {{ 'nav-active' if request.path.startswith('/invoices') }}">客戶請款</a>
             <a href="/vendors" class="nav-link {{ 'nav-active' if request.path.startswith('/vendors') }}">廠商資料</a>
             {% if user.role == 'admin' %}
             <a href="/cost-categories" class="nav-link {{ 'nav-active' if request.path.startswith('/cost-categories') }}">成本科目</a>

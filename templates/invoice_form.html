@@ -1,0 +1,212 @@
+{% extends "base.html" %}
+{% block title %}{{ '編輯請款單' if invoice else '新增請款單' }}{% endblock %}
+{% block content %}
+<a href="{{ '/invoices/%d' % invoice.id if invoice else '/invoices' }}" class="back-link">&larr; 返回</a>
+<h1>{{ '編輯請款單 ' + invoice.invoice_no if invoice else '新增請款單' }}</h1>
+
+{% if error %}
+<div class="error-banner">
+    {% if error == 'missing' %}必填欄位不完整
+    {% elif error == 'invalid_period' %}年月格式錯誤
+    {% elif error == 'no_lines' %}至少需要一行明細
+    {% else %}{{ error }}
+    {% endif %}
+</div>
+{% endif %}
+
+<form method="POST" action="{{ '/invoices/%d/update' % invoice.id if invoice else '/invoices/create' }}">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+<div class="bento-grid">
+
+<!-- 客戶資料 -->
+<div class="bento-cell bento-cell--full">
+    <h3>客戶資料</h3>
+    <div class="form-grid">
+        <div class="form-group">
+            <label>客戶名稱 <span class="required">*</span></label>
+            <input type="text" name="client_name" value="{{ invoice.client_name if invoice else '' }}" required>
+        </div>
+        <div class="form-group">
+            <label>寄送地址</label>
+            <input type="text" name="client_address" value="{{ invoice.client_address if invoice else '' }}">
+        </div>
+        <div class="form-group">
+            <label>請款年份 <span class="required">*</span></label>
+            <input type="number" name="period_year" min="2020" max="2099" value="{{ form_year }}" required {{ 'readonly' if invoice }}>
+        </div>
+        <div class="form-group">
+            <label>請款月份 <span class="required">*</span></label>
+            <select name="period_month" required {{ 'disabled' if invoice }}>
+                {% for m in range(1, 13) %}
+                <option value="{{ m }}" {{ 'selected' if form_month == m }}>{{ m }} 月</option>
+                {% endfor %}
+            </select>
+            {% if invoice %}<input type="hidden" name="period_month" value="{{ form_month }}">{% endif %}
+        </div>
+        <div class="form-group" style="grid-column: 1 / -1;">
+            <label>備註</label>
+            <input type="text" name="notes" value="{{ invoice.notes if invoice else '' }}" placeholder="選填">
+        </div>
+    </div>
+</div>
+
+<!-- 請款明細 -->
+<div class="bento-cell bento-cell--full">
+    <h3>請款明細</h3>
+    <p class="field-hint" style="margin-bottom:14px;">選擇案場後系統會自動帶入建議金額（可手動修改）。一張請款單可列多個案場。</p>
+
+    <table class="desktop-table" id="lines-table">
+        <thead>
+            <tr>
+                <th scope="col" style="width:25%">案場</th>
+                <th scope="col">說明</th>
+                <th scope="col" style="text-align:right;width:120px">建議金額</th>
+                <th scope="col" style="text-align:right;width:140px">實際金額</th>
+                <th scope="col" style="width:60px"></th>
+            </tr>
+        </thead>
+        <tbody id="lines-body">
+            {% if lines %}
+                {% for line in lines %}
+                <tr class="line-row">
+                    <td>
+                        <select name="line_project_id[]" class="line-project inline-edit-select" style="width:100%">
+                            <option value="">— 自訂行 —</option>
+                            {% for p in projects %}
+                            <option value="{{ p[0] }}" {{ 'selected' if line[1] == p[0] }}>{{ p[1] }} {{ p[2] }}</option>
+                            {% endfor %}
+                            {% if line[1] and line[1] not in projects|map(attribute=0)|list %}
+                            <option value="{{ line[1] }}" selected>{{ line[2] }} {{ line[3] }}（已結案）</option>
+                            {% endif %}
+                        </select>
+                    </td>
+                    <td><input type="text" name="line_description[]" class="line-desc inline-edit-input" style="width:100%" value="{{ line[4] }}" required></td>
+                    <td style="text-align:right">
+                        <span class="line-suggest-display amount">{{ '{:,.0f}'.format(line[5] or 0) }}</span>
+                        <input type="hidden" name="line_suggested[]" class="line-suggest" value="{{ line[5] or 0 }}">
+                    </td>
+                    <td><input type="number" name="line_amount[]" class="line-amount inline-edit-input" style="width:100%;text-align:right" value="{{ line[6] }}" step="0.01" required></td>
+                    <td><button type="button" class="btn-small btn-danger line-remove">×</button></td>
+                </tr>
+                {% endfor %}
+            {% endif %}
+        </tbody>
+        <tfoot>
+            <tr>
+                <td colspan="3" style="text-align:right;font-weight:600;padding:14px;">合計</td>
+                <td style="text-align:right;font-weight:700;font-size:16px;color:var(--accent);" id="lines-total">0</td>
+                <td></td>
+            </tr>
+        </tfoot>
+    </table>
+
+    <div style="margin-top:14px;">
+        <button type="button" class="btn btn-secondary" id="add-line">+ 新增明細</button>
+    </div>
+</div>
+
+<!-- 操作 -->
+<div class="bento-cell bento-cell--full bento-cell--transparent">
+    <div class="actions">
+        <button type="submit" class="btn btn-primary">{{ '儲存變更' if invoice else '建立請款單' }}</button>
+        <a href="{{ '/invoices/%d' % invoice.id if invoice else '/invoices' }}" class="btn btn-secondary">取消</a>
+    </div>
+</div>
+
+</div>
+</form>
+
+<!-- Row template (hidden) -->
+<template id="line-template">
+    <tr class="line-row">
+        <td>
+            <select name="line_project_id[]" class="line-project inline-edit-select" style="width:100%">
+                <option value="">— 自訂行 —</option>
+                {% for p in projects %}
+                <option value="{{ p[0] }}">{{ p[1] }} {{ p[2] }}</option>
+                {% endfor %}
+            </select>
+        </td>
+        <td><input type="text" name="line_description[]" class="line-desc inline-edit-input" style="width:100%" required></td>
+        <td style="text-align:right">
+            <span class="line-suggest-display amount">0</span>
+            <input type="hidden" name="line_suggested[]" class="line-suggest" value="0">
+        </td>
+        <td><input type="number" name="line_amount[]" class="line-amount inline-edit-input" style="width:100%;text-align:right" step="0.01" required></td>
+        <td><button type="button" class="btn-small btn-danger line-remove">×</button></td>
+    </tr>
+</template>
+
+<script>
+(function() {
+    var body = document.getElementById('lines-body');
+    var tpl = document.getElementById('line-template');
+    var addBtn = document.getElementById('add-line');
+    var totalEl = document.getElementById('lines-total');
+
+    function fmtMoney(n) {
+        return new Intl.NumberFormat('zh-TW', {maximumFractionDigits: 0}).format(n);
+    }
+
+    function recalcTotal() {
+        var rows = body.querySelectorAll('.line-row');
+        var total = 0;
+        rows.forEach(function(r) {
+            var amt = parseFloat(r.querySelector('.line-amount').value) || 0;
+            total += amt;
+        });
+        totalEl.textContent = fmtMoney(total);
+    }
+
+    function bindRow(row) {
+        var sel = row.querySelector('.line-project');
+        var desc = row.querySelector('.line-desc');
+        var sugg = row.querySelector('.line-suggest');
+        var suggDisp = row.querySelector('.line-suggest-display');
+        var amt = row.querySelector('.line-amount');
+        var rmv = row.querySelector('.line-remove');
+
+        sel.addEventListener('change', function() {
+            var pid = this.value;
+            if (!pid) return;
+            fetch('/api/invoice-suggest/' + pid)
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (data.error) return;
+                    if (!desc.value) desc.value = data.description;
+                    sugg.value = data.suggested_amount;
+                    suggDisp.textContent = fmtMoney(data.suggested_amount);
+                    if (!amt.value || parseFloat(amt.value) === 0) {
+                        amt.value = data.suggested_amount;
+                    }
+                    recalcTotal();
+                });
+        });
+
+        amt.addEventListener('input', recalcTotal);
+
+        rmv.addEventListener('click', function() {
+            row.remove();
+            recalcTotal();
+        });
+    }
+
+    addBtn.addEventListener('click', function() {
+        var clone = tpl.content.cloneNode(true);
+        body.appendChild(clone);
+        var newRow = body.lastElementChild;
+        bindRow(newRow);
+    });
+
+    // Bind existing rows
+    body.querySelectorAll('.line-row').forEach(bindRow);
+    recalcTotal();
+
+    // 若是新增模式且無預設行，自動加一行
+    if (body.querySelectorAll('.line-row').length === 0) {
+        addBtn.click();
+    }
+})();
+</script>
+{% endblock %}

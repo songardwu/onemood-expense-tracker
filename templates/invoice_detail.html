@@ -1,0 +1,193 @@
+{% extends "base.html" %}
+{% block title %}{{ invoice.invoice_no }} 請款單{% endblock %}
+{% block content %}
+<a href="/invoices" class="back-link">&larr; 返回列表</a>
+
+<div style="display:flex;align-items:center;gap:12px;margin-bottom:4px;flex-wrap:wrap;">
+    <h1 style="margin:0;font-family:var(--font-mono);font-size:24px;">{{ invoice.invoice_no }}</h1>
+    {% if invoice.status == 'draft' %}
+        <span class="status-badge status-disabled">草稿</span>
+    {% elif invoice.status == 'issued' %}
+        <span class="badge badge-admin">已開立</span>
+    {% elif invoice.status == 'paid' %}
+        <span class="status-badge status-active">已收款</span>
+    {% elif invoice.status == 'void' %}
+        <span class="status-badge" style="background:var(--red-light);color:var(--red);">作廢</span>
+    {% endif %}
+</div>
+<p style="color:var(--text-secondary);margin-bottom:20px;">{{ invoice.client_name }} · {{ invoice.period_year }}/{{ '%02d' % invoice.period_month }} 月</p>
+
+{% if error %}
+<div class="error-banner">
+    {% if error == 'not_editable' %}此請款單已開立，僅草稿狀態可編輯
+    {% elif error == 'not_deletable' %}此請款單已開立，僅草稿狀態可刪除
+    {% elif error == 'invalid_transition' %}狀態流轉不允許
+    {% else %}{{ error }}
+    {% endif %}
+</div>
+{% endif %}
+
+<div class="bento-grid">
+
+<!-- 客戶資訊 -->
+<div class="bento-cell bento-cell--half">
+    <h3>客戶資訊</h3>
+    <table class="detail-table">
+        <tr><td class="label">客戶名稱</td><td>{{ invoice.client_name }}</td></tr>
+        <tr><td class="label">寄送地址</td><td>{{ invoice.client_address or '-' }}</td></tr>
+        <tr><td class="label">請款月份</td><td>{{ invoice.period_year }}/{{ '%02d' % invoice.period_month }}</td></tr>
+        {% if invoice.notes %}
+        <tr><td class="label">備註</td><td>{{ invoice.notes }}</td></tr>
+        {% endif %}
+    </table>
+</div>
+
+<!-- 開立資訊 -->
+<div class="bento-cell bento-cell--half">
+    <h3>開立資訊</h3>
+    <table class="detail-table">
+        <tr><td class="label">建立時間</td><td>{{ invoice.created_at.strftime('%Y-%m-%d %H:%M') if invoice.created_at else '-' }}</td></tr>
+        <tr><td class="label">開立時間</td><td>{{ invoice.issued_at.strftime('%Y-%m-%d %H:%M') if invoice.issued_at else '-' }}</td></tr>
+        <tr><td class="label">開立人</td><td>{{ invoice.issued_by_name or '-' }}</td></tr>
+        <tr><td class="label">最後更新</td><td>{{ invoice.updated_at.strftime('%Y-%m-%d %H:%M') if invoice.updated_at else '-' }}</td></tr>
+    </table>
+</div>
+
+<!-- 請款明細 -->
+<div class="bento-cell bento-cell--full">
+    <h3>請款明細</h3>
+    {% if lines %}
+    <table class="detail-table" style="width:100%">
+        <thead>
+            <tr>
+                <th scope="col">案場</th>
+                <th scope="col">說明</th>
+                <th scope="col" style="text-align:right">建議金額</th>
+                <th scope="col" style="text-align:right">實際金額</th>
+                <th scope="col" style="text-align:right">差異</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for line in lines %}
+            {% set diff = (line[6] or 0) - (line[5] or 0) %}
+            <tr>
+                <td>
+                    {% if line[1] %}
+                        <a href="/projects/{{ line[1] }}" style="font-family:var(--font-mono);font-size:12px;">{{ line[2] }}</a>
+                    {% else %}
+                        <span class="text-muted">自訂行</span>
+                    {% endif %}
+                </td>
+                <td>{{ line[4] }}</td>
+                <td style="text-align:right" class="text-muted">{{ '{:,.0f}'.format(line[5] or 0) }}</td>
+                <td style="text-align:right" class="amount">{{ '{:,.0f}'.format(line[6]) }}</td>
+                <td style="text-align:right" class="{{ 'negative' if diff < 0 else '' }}">{{ '{:+,.0f}'.format(diff) if diff else '—' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        <tfoot>
+            <tr>
+                <td colspan="3" style="text-align:right;font-weight:600;padding:14px 0;">合計</td>
+                <td style="text-align:right;" class="amount" style="font-size:16px;color:var(--accent);">{{ '{:,.0f}'.format(invoice.total_amount) }}</td>
+                <td></td>
+            </tr>
+        </tfoot>
+    </table>
+    {% else %}
+    <p class="text-muted">無明細</p>
+    {% endif %}
+</div>
+
+<!-- 對應收款 -->
+{% if linked_payments %}
+<div class="bento-cell bento-cell--full">
+    <h3>對應收款</h3>
+    <table class="detail-table" style="width:100%">
+        <thead>
+            <tr>
+                <th scope="col">案場</th>
+                <th scope="col">日期</th>
+                <th scope="col">付款方式</th>
+                <th scope="col" style="text-align:right">金額</th>
+                <th scope="col">狀態</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% set ns = namespace(received=0) %}
+            {% for p in linked_payments %}
+            <tr>
+                <td><a href="/projects/{{ p[0] }}" style="font-family:var(--font-mono);font-size:12px;">{{ p[1] }}</a> {{ p[2] }}</td>
+                <td>{{ p[3] }}</td>
+                <td>{{ p[4] }}</td>
+                <td style="text-align:right" class="amount">{{ '{:,.0f}'.format(p[5]) }}</td>
+                <td>
+                    {% if p[6] %}
+                        <span class="status-badge status-active">已確認</span>
+                        {% set ns.received = ns.received + p[5] %}
+                    {% else %}
+                        <span class="status-badge status-disabled">待確認</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        <tfoot>
+            <tr>
+                <td colspan="3" style="text-align:right;font-weight:600;padding:14px 0;">已收款合計</td>
+                <td style="text-align:right;" class="amount">{{ '{:,.0f}'.format(ns.received) }}</td>
+                <td></td>
+            </tr>
+        </tfoot>
+    </table>
+</div>
+{% endif %}
+
+<!-- 操作（admin only） -->
+{% if user.role == 'admin' %}
+<div class="bento-cell bento-cell--full">
+    <h3>操作</h3>
+    <div class="actions">
+        {% if invoice.status == 'draft' %}
+        <a href="/invoices/{{ invoice.id }}/edit" class="btn btn-secondary">編輯內容</a>
+        {% endif %}
+
+        {% if 'issued' in allowed_transitions %}
+        <form method="POST" action="/invoices/{{ invoice.id }}/status" class="inline-form"
+              onsubmit="return confirm('確定開立此請款單？開立後就不能再編輯內容。');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="status" value="issued">
+            <button type="submit" class="btn btn-primary">開立請款單</button>
+        </form>
+        {% endif %}
+
+        {% if 'paid' in allowed_transitions %}
+        <form method="POST" action="/invoices/{{ invoice.id }}/status" class="inline-form"
+              onsubmit="return confirm('確定標記為已收款？');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="status" value="paid">
+            <button type="submit" class="btn btn-success">標記已收款</button>
+        </form>
+        {% endif %}
+
+        {% if 'void' in allowed_transitions %}
+        <form method="POST" action="/invoices/{{ invoice.id }}/status" class="inline-form"
+              onsubmit="return confirm('確定作廢此請款單？此操作會被記錄。');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="status" value="void">
+            <button type="submit" class="btn-small btn-danger">作廢</button>
+        </form>
+        {% endif %}
+
+        {% if invoice.status == 'draft' %}
+        <form method="POST" action="/invoices/{{ invoice.id }}/delete" class="inline-form"
+              onsubmit="return confirm('確定刪除此草稿？');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn-delete">刪除草稿</button>
+        </form>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+</div>
+{% endblock %}
