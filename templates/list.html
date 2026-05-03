@@ -3,6 +3,7 @@
 {% block title %}出帳管理{% endblock %}
 {% block content %}
 <h1>出帳管理</h1>
+<p class="page-subtitle">管理所有費用提報與匯款資訊</p>
 
 {% set err = request.args.get('error') %}
 {% if err == 'invoice_dup' %}
@@ -199,7 +200,7 @@
 <!-- ===== Mobile ===== -->
 <div class="mobile-cards">
     {% for r in reports %}
-    <div class="card {{ 'row-locked' if r[12] else '' }}">
+    <div class="card {{ 'row-locked' if r[12] else '' }} card--{{ r[4]|replace('案場成本','cost')|replace('管銷','admin')|replace('獎金','bonus') }}">
         <div class="card-header">
             <span class="card-date">{{ r[1] }}</span>
             {% if not r[12] %}
@@ -368,6 +369,13 @@
 
 {% else %}
 <div class="empty-state">
+    <svg class="empty-state-icon" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="14" y="8" width="36" height="48" rx="3"/>
+        <line x1="22" y1="20" x2="42" y2="20"/>
+        <line x1="22" y1="28" x2="38" y2="28"/>
+        <line x1="22" y1="36" x2="34" y2="36"/>
+        <line x1="22" y1="44" x2="30" y2="44"/>
+    </svg>
     <p>目前沒有提報資料</p>
     <p>點擊「+ 新增提報」開始</p>
 </div>

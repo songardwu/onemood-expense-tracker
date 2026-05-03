@@ -317,13 +317,13 @@
             <div class="dashboard-label">案場總成本</div>
             <div class="dashboard-value">{{ '{:,.0f}'.format(summary.total_cost) }}</div>
         </div>
-        <div class="dashboard-card">
+        <div class="dashboard-card {{ 'dashboard-card--positive' if summary.profit >= 0 else 'dashboard-card--negative' }}">
             <div class="dashboard-label">案場利潤</div>
             <div class="dashboard-value {{ 'negative' if summary.profit < 0 else '' }}">
                 {{ '{:,.0f}'.format(summary.profit) }}
             </div>
         </div>
-        <div class="dashboard-card">
+        <div class="dashboard-card {{ 'dashboard-card--positive' if summary.profit >= 0 else 'dashboard-card--negative' }}">
             <div class="dashboard-label">利潤率</div>
             <div class="dashboard-value {{ 'negative' if summary.profit < 0 else '' }}">
                 {% if summary.original_contract > 0 %}
@@ -338,6 +338,19 @@
             <div class="dashboard-value">{{ '{:,.0f}'.format(summary.deposit_deduction) }}</div>
         </div>
     </div>
+
+    {% if summary.settlement_price > 0 %}
+    {% set recv_pct = (summary.total_received / summary.settlement_price * 100) %}
+    <div class="progress-bar-container">
+        <div class="progress-bar-label">
+            <span>收款進度</span>
+            <span>{{ '{:.1f}'.format(recv_pct) }}%（{{ '{:,.0f}'.format(summary.total_received) }} / {{ '{:,.0f}'.format(summary.settlement_price) }}）</span>
+        </div>
+        <div class="progress-bar">
+            <div class="progress-bar-fill" style="width:{{ [recv_pct, 100]|min }}%"></div>
+        </div>
+    </div>
+    {% endif %}
 </div>
 
 <!-- ========== 區塊六：結算與分潤 ========== -->
