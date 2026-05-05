@@ -24,7 +24,7 @@ VIEWPORTS = [
     ("mobile", 390, 844),
 ]
 
-def login(page, username="dawn", password="admin"):
+def login(page, username="admin", password="admin"):
     """Log in and return authenticated page."""
     page.goto(f"{BASE}/login")
     page.fill('input[name="username"]', username)
