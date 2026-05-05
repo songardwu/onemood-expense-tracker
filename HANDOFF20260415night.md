@@ -2,13 +2,13 @@
 
 ## 專案概述
 
-出帳管理系統（Dawn Expense Tracker）— 室內設計公司 Dawn 的內部請款提報 + 廠商匯款管理 + Excel 匯出工具。
+出帳管理系統（Onemood ERP）— 室內設計公司 Onemood 的內部請款提報 + 廠商匯款管理 + Excel 匯出工具。
 
 - **線上網址：** https://onemood-expense-tracker.vercel.app
 - **GitHub：** https://github.com/songardwu/onemood-expense-tracker
 - **技術棧：** Flask + Jinja2 + Neon Postgres + Vercel Serverless
 - **程式碼量：** ~3,500 行（app.py 1,121 / CSS 1,120 / 模板 6 個 / JS 60 / 測試 520）
-- **管理員登入：** dawn / dawn1234（⚠️ 需更換）
+- **管理員登入：** onemood / onemood1234（⚠️ 需更換）
 - **設計師登入：** designer_a / test1234
 
 ---
@@ -106,7 +106,7 @@
 
 | 表 | 欄位數 | 索引 | 說明 |
 |----|--------|------|------|
-| `users` | 7 | PK + username unique | dawn(admin) + 2 位設計師 |
+| `users` | 7 | PK + username unique | onemood(admin) + 2 位設計師 |
 | `reports` | 16 | PK only（⚠️ 缺索引） | 測試資料約 11 筆 |
 | `vendors` | 10 | PK + name unique | 5 家測試廠商含銀行資訊 |
 | `vendor_keywords` | — | PK + keyword unique | 廠商名稱比對關鍵字 |

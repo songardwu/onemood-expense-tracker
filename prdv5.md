@@ -104,14 +104,14 @@
 
 - 保留固定頂部導航列
 - 風格由毛玻璃改為大地色系實底（暖奶油或深石墨）
-- 品牌名 "Dawn" 使用 Noto Serif TC
+- 品牌名 "Onemood" 使用 Noto Serif TC
 
 ---
 
 ## 4. 各頁面改版要點
 
 ### 登入頁 (`login.html`)
-- 品牌名 "Dawn" 用 Noto Serif TC Bold
+- 品牌名 "Onemood" 用 Noto Serif TC Bold
 - 背景色 `#F5F2ED`
 - 登入按鈕用森林深綠 CTA
 

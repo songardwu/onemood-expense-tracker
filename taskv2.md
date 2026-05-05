@@ -22,13 +22,13 @@
 - **做什麼：**
   - import `get_conn` from app + `generate_password_hash` from werkzeug
   - 建立 `users` 表（id, username, display_name, password_hash, role, is_active, created_at）
-  - 插入初始管理員帳號：username=`dawn`, display_name=`Dawn`, password=`admin123`, role=`admin`
+  - 插入初始管理員帳號：username=`onemood`, display_name=`Onemood`, password=`admin123`, role=`admin`
   - `reports` 表新增 `user_id INTEGER REFERENCES users(id)`
-  - 既有 reports 全部 `UPDATE SET user_id = 1`（歸屬 Dawn）
+  - 既有 reports 全部 `UPDATE SET user_id = 1`（歸屬 Onemood）
   - `ALTER COLUMN user_id SET NOT NULL`
 - **執行：** `python migrate_v2.py`
 - **驗證：**
-  - [ ] users 表存在，有 1 筆 Dawn 管理員
+  - [ ] users 表存在，有 1 筆 Onemood 管理員
   - [ ] reports 每筆都有 user_id = 1
 
 ### Task 1.2：`.env.local` 加入 `SECRET_KEY`
@@ -71,7 +71,7 @@
 - **驗證：**
   - [ ] 瀏覽器打開 `/` → 被導到 `/login`
   - [ ] 輸入錯誤帳密 → 顯示「帳號或密碼錯誤」
-  - [ ] 輸入 dawn / admin123 → 登入成功，進入清單頁
+  - [ ] 輸入 onemood / admin123 → 登入成功，進入清單頁
   - [ ] 清單頁看到既有資料（V1 的測試資料）
   - [ ] 點「登出」→ 回到登入頁
   - [ ] 再次開 `/` → 被導回登入頁（session 已清）
@@ -118,11 +118,11 @@
 ### Task 2.6：測試 Phase 2
 - **前置：** 手動建立一個測試設計師帳號（直接 SQL 或稍後透過帳號管理）
 - **驗證：**
-  - [ ] dawn 登入 → 看到全部 reports
+  - [ ] onemood 登入 → 看到全部 reports
   - [ ] 測試設計師登入 → 看到 0 筆（空清單）
   - [ ] 設計師新增 1 筆 → 清單顯示 1 筆
-  - [ ] 設計師嘗試刪除 dawn 的資料（直接 POST 表單）→ 不生效
-  - [ ] dawn 登入 → 看到所有資料（含設計師剛新增的）
+  - [ ] 設計師嘗試刪除 onemood 的資料（直接 POST 表單）→ 不生效
+  - [ ] onemood 登入 → 看到所有資料（含設計師剛新增的）
 
 ---
 
@@ -220,7 +220,7 @@
 
 ### Task 4.4：測試 Phase 4
 - **驗證：**
-  - [ ] admin 登入 → 點「帳號管理」→ 看到帳號清單（只有 Dawn）
+  - [ ] admin 登入 → 點「帳號管理」→ 看到帳號清單（只有 Onemood）
   - [ ] 新增 designer_a（帳號 designer_a / 姓名 設計師A / 密碼 test123 / 角色 設計師）
   - [ ] 新增 designer_b（同上，改名稱和帳號）
   - [ ] 帳號清單顯示 3 筆
@@ -290,7 +290,7 @@
 
 | # | 測試步驟 | 預期結果 | 狀態 |
 |---|----------|----------|------|
-| 1 | 管理員 dawn/admin123 登入 → 進帳號管理 | 看到帳號清單 | [ ] |
+| 1 | 管理員 onemood/admin123 登入 → 進帳號管理 | 看到帳號清單 | [ ] |
 | 2 | 新增 designer_a + designer_b | 帳號清單 3 筆 | [ ] |
 | 3 | 登出 → designer_a 登入 | 登入成功 | [ ] |
 | 4 | designer_a 提報 3 筆 | 清單顯示 3 筆 | [ ] |

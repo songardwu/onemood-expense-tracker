@@ -1,8 +1,8 @@
-# Dawn Expense Tracker — V5 UI Redesign
+# Onemood ERP — V5 UI Redesign
 
 ## What This Is
 
-Dawn 室內設計公司的內部出帳管理系統。設計師提報請款、管理員審核匯款、系統自動計算匯款日期並匯出 Excel。V5 目標是將 UI 從冷白 Apple 極簡風格改版為暖大地色系 + Bento Grid 排版，強化室內設計品牌識別，同時維持完美的手機自適應和 WCAG AA 無障礙標準。
+Onemood 室內設計公司的內部出帳管理系統。設計師提報請款、管理員審核匯款、系統自動計算匯款日期並匯出 Excel。V5 目標是將 UI 從冷白 Apple 極簡風格改版為暖大地色系 + Bento Grid 排版，強化室內設計品牌識別，同時維持完美的手機自適應和 WCAG AA 無障礙標準。
 
 ## Core Value
 
@@ -56,7 +56,7 @@ Dawn 室內設計公司的內部出帳管理系統。設計師提報請款、管
 - **技術棧**：Flask + Jinja2 + psycopg2 + Neon Postgres + Vercel Serverless
 - **現有 CSS**：1,120 行 Apple 極簡風格，CSS custom properties 架構
 - **流量分佈**：手機 51%，桌面 49%
-- **使用者**：Dawn 管理員 + 2-3 位設計師
+- **使用者**：Onemood 管理員 + 2-3 位設計師
 - **設計規範文件**：`prdv5.md`（完整色彩/字體/組件/無障礙驗證）
 - **開發分支**：`v5-ui-redesign`（從 master 分出）
 - **功能模組健康度**：14 模組中 11 個優秀、3 個可用，無需修復即可改版

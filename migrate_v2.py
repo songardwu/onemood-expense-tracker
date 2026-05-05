@@ -1,9 +1,9 @@
 """
 V2 資料庫遷移腳本 — 執行一次
 1. 建 users 表
-2. 插入初始管理員帳號（Dawn）
+2. 插入初始管理員帳號（Onemood）
 3. reports 加 user_id 欄位
-4. 既有 reports 全部歸屬 Dawn (user_id = 1)
+4. 既有 reports 全部歸屬 Onemood (user_id = 1)
 5. user_id 設為 NOT NULL
 """
 
@@ -32,7 +32,7 @@ def migrate():
     pw_hash = generate_password_hash('admin123')
     cur.execute("""
         INSERT INTO users (username, display_name, password_hash, role)
-        VALUES ('dawn', 'Dawn', %s, 'admin')
+        VALUES ('admin', 'Onemood', %s, 'admin')
         ON CONFLICT (username) DO NOTHING;
     """, (pw_hash,))
 
@@ -41,7 +41,7 @@ def migrate():
         ALTER TABLE reports ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id);
     """)
 
-    # 4. 既有資料歸屬 Dawn (id=1)
+    # 4. 既有資料歸屬 Onemood (id=1)
     cur.execute("UPDATE reports SET user_id = 1 WHERE user_id IS NULL;")
 
     # 5. 設 NOT NULL

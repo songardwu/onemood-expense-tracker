@@ -1,6 +1,6 @@
 # SDD V6 — 系統設計文件（System Design Document）
 
-## Dawn 出帳管理系統 V5 UI Redesign
+## Onemood 出帳管理系統 V5 UI Redesign
 
 **對應 PRD：** prdv6.md V6.1
 **範圍：** `static/style.css` + 6 templates + `app.py` CSP 一行

@@ -100,7 +100,7 @@ def check(desc, condition):
 **Session/Auth Pattern:**
 ```python
 admin = make_session()
-login(admin, 'dawn', 'dawn1234')
+login(admin, 'onemood', 'onemood1234')
 
 designer = make_session()
 login(designer, 'designer_a', 'test1234')
@@ -166,8 +166,8 @@ db_exec("DELETE FROM vendors WHERE name LIKE %s", ('S\\_%',))
 ```
 
 **Prerequisite:** Tests assume specific users exist in the database:
-- `dawn` / `dawn1234` (admin) — used by `test_scenario.py`
-- `dawn` / `admin123` (admin) — used by `test_v3_full.py` (different password!)
+- `onemood` / `onemood1234` (admin) — used by `test_scenario.py`
+- `onemood` / `admin123` (admin) — used by `test_v3_full.py` (different password!)
 - `designer_a` / `test1234` (designer) — used by `test_scenario.py`
 
 **`test_v3_full.py` creates its own test users** (`designer_a`, `designer_b`) and cleans them up. `test_scenario.py` assumes they already exist.
@@ -283,7 +283,7 @@ check('Amount stored correctly', float(rows[0][0]) == 1000)
 
 1. **`test_v3_full.py` and `test_v4.py` are broken** — they do not handle CSRF tokens. Running them against the current server will fail on all POST requests.
 
-2. **Tests depend on pre-existing database users** — `test_scenario.py` requires `dawn`/`dawn1234` and `designer_a`/`test1234` to exist. If the database is reset, tests will fail.
+2. **Tests depend on pre-existing database users** — `test_scenario.py` requires `onemood`/`onemood1234` and `designer_a`/`test1234` to exist. If the database is reset, tests will fail.
 
 3. **Tests are not idempotent if interrupted** — if a test run is killed before cleanup, leftover `S_`/`S-` prefixed data remains in the database. Manual cleanup needed:
    ```sql
@@ -293,7 +293,7 @@ check('Amount stored correctly', float(rows[0][0]) == 1000)
 
 4. **No test isolation** — all tests share the same database. Running multiple test files simultaneously will cause conflicts.
 
-5. **Password mismatch** — `test_scenario.py` uses `dawn1234` for admin, `test_v3_full.py` uses `admin123`. Only one can be correct for the current database state.
+5. **Password mismatch** — `test_scenario.py` uses `onemood1234` for admin, `test_v3_full.py` uses `admin123`. Only one can be correct for the current database state.
 
 ---
 

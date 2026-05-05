@@ -75,7 +75,7 @@ Migration v5 done.
 - [x] 3 個 invoices templates Jinja2 編譯通過
 - [x] 未登入存取 `/invoices` 正確 302 redirect
 - [x] Production 部署成功（Vercel）
-- [x] Admin 密碼已重設（臨時 `Dawn@2026`）
+- [x] Admin 密碼已重設（臨時 `Onemood@2026`）
 - [x] UI 8 項改善已 push 到 master 並部署
 
 ---

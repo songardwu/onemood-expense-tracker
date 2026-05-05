@@ -12,10 +12,10 @@
 - 測試腳本已更新支援 CSRF token 自動注入
 - 69/69 scenario test 全通過
 
-### 2. Dawn 管理員密碼更換
-- 目前密碼仍為開發階段設定（dawn1234），任何知道 repo 的人都能登入
+### 2. Onemood 管理員密碼更換
+- 目前密碼仍為開發階段設定（onemood1234），任何知道 repo 的人都能登入
 - 到帳號管理頁 `/users` 直接重設
-- **負責人：Dawn 本人**
+- **負責人：Onemood 本人**
 
 ### 3. CSRF 錯誤處理精準化
 - **現狀**：用 `@app.errorhandler(400)` 攔截，以 `'CSRF' in str(e)` 判斷

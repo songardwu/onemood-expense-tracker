@@ -9,7 +9,7 @@
 | # | 項目 | 阻塞原因 | 影響範圍 |
 |---|------|---------|---------|
 | B1 | Vercel Git 連結 | 需 Vercel Dashboard 手動操作 Login Connection → GitHub | preview 環境變數無法設、無 auto-deploy |
-| B2 | Admin 密碼更換 | 目前是臨時密碼 `Dawn@2026`（Claude 重設），需登入改為自己的 | 安全風險 |
+| B2 | Admin 密碼更換 | 目前是臨時密碼 `Onemood@2026`（Claude 重設），需登入改為自己的 | 安全風險 |
 
 ---
 
@@ -19,7 +19,7 @@
 
 | # | 項目 | 說明 | 預估 |
 |---|------|------|------|
-| 1 | Admin 改密碼 | 登入 `/change-password` 把 `Dawn@2026` 換成自己的 | 2 min |
+| 1 | Admin 改密碼 | 登入 `/change-password` 把 `Onemood@2026` 換成自己的 | 2 min |
 | 2 | invoices 模組 UAT | 完整跑流程：建請款單 → 開立 → 標收款 → 作廢 | 15 min |
 
 ### P1 — 本週內

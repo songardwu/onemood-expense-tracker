@@ -63,7 +63,7 @@ print('=' * 60)
 # === 登入 ===
 section('1. 登入')
 admin = make_session()
-login(admin, 'dawn', 'dawn1234')
+login(admin, 'admin', 'admin')
 s1, body = get_page(admin, '/')
 check('管理員登入成功', s1 == 200 and '出帳管理' in body)
 

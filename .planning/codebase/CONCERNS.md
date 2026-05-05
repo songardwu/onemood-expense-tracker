@@ -78,13 +78,13 @@
 - Recommendations: Implement `flask-limiter` with a persistent backend (Neon DB counter or Upstash Redis). Set limit to 5 attempts per minute per IP on `POST /login`. Consider account lockout after N failures.
 
 **No Password Complexity Requirements:**
-- Risk: Users and admins can set single-character passwords. Default test credentials (`dawn1234`, `test1234`) are weak.
+- Risk: Users and admins can set single-character passwords. Default test credentials (`onemood1234`, `test1234`) are weak.
 - Files: `app.py` lines 1063-1089 (user create), lines 1104-1117 (password reset)
 - Current mitigation: None
 - Recommendations: Enforce minimum 8 characters, mix of letters and numbers. Add validation in `user_create()` and `user_reset_password()`.
 
 **Default Admin Credentials in Documentation:**
-- Risk: The HANDOFF document (committed to git) contains plaintext credentials: `dawn / dawn1234` and `designer_a / test1234`
+- Risk: The HANDOFF document (committed to git) contains plaintext credentials: `onemood / onemood1234` and `designer_a / test1234`
 - Files: `HANDOFF20260415night.md` line 13-14
 - Current mitigation: None — anyone with repo access can log in
 - Recommendations: Rotate credentials immediately. Remove plaintext credentials from committed documentation.

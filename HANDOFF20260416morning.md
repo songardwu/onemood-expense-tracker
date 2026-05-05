@@ -43,7 +43,7 @@ V5 UI Redesign 全 5 Phase 已實作並部署至 Vercel production。附帶修�
 | 字型載入 | OK | Noto Serif TC 標題 + Noto Sans TC 內文，CSP 無錯誤 |
 | Bento Grid 佈局 | OK | 初版有雙重卡片問題，已用 `--transparent` 修正（commit `2b08351`） |
 | 按鈕圓角 | OK | 所有 `980px` 膠囊已改為 `var(--radius-s)` (6px) |
-| Navbar | OK | 毛玻璃移除、實底、Dawn 品牌名 Serif |
+| Navbar | OK | 毛玻璃移除、實底、Onemood 品牌名 Serif |
 | Dark Mode | 已實作，未實機驗證 | CSS token 已寫，需切系統 dark mode 看效果 |
 | Vercel 部署 | OK (手動) | `npx vercel --prod` 成功，但 git push 未觸發自動部署 |
 | Before/After 截圖 | OK | 各 10 張已存入 `docs/screenshots/` |

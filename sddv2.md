@@ -48,9 +48,9 @@ ALTER TABLE reports ADD COLUMN user_id INTEGER REFERENCES users(id);
 ```python
 # migrate_v2.py — 執行一次
 # 1. 建 users 表
-# 2. 插入初始管理員帳號（Dawn）
+# 2. 插入初始管理員帳號（Onemood）
 # 3. reports 加 user_id 欄位
-# 4. 既有 reports 全部歸屬 Dawn (user_id = 1)
+# 4. 既有 reports 全部歸屬 Onemood (user_id = 1)
 # 5. user_id 設為 NOT NULL
 
 from werkzeug.security import generate_password_hash
@@ -76,7 +76,7 @@ def migrate():
     pw_hash = generate_password_hash('admin123')
     cur.execute("""
         INSERT INTO users (username, display_name, password_hash, role)
-        VALUES ('dawn', 'Dawn', %s, 'admin')
+        VALUES ('onemood', 'Onemood', %s, 'admin')
         ON CONFLICT (username) DO NOTHING;
     """, (pw_hash,))
 
@@ -85,7 +85,7 @@ def migrate():
         ALTER TABLE reports ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id);
     """)
 
-    # 既有資料歸屬 Dawn
+    # 既有資料歸屬 Onemood
     cur.execute("UPDATE reports SET user_id = 1 WHERE user_id IS NULL;")
 
     # 設 NOT NULL
@@ -632,7 +632,7 @@ cur.execute("DELETE FROM reports WHERE id = %s AND user_id = %s",
 3. 加入 `GET /login`、`POST /login`、`GET /logout` 路由
 4. 建立 `templates/login.html`
 5. `.env.local` 加入 `SECRET_KEY`
-6. **測試：** 開啟首頁 → 被導到登入頁 → 用 dawn/admin123 登入 → 進入清單頁
+6. **測試：** 開啟首頁 → 被導到登入頁 → 用 onemood/admin123 登入 → 進入清單頁
 
 ### Phase 2 — 資料隔離
 7. 修改 `GET /` 路由：根據角色過濾 reports

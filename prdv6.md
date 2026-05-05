@@ -1,6 +1,6 @@
 # PRD V6 — UI 設計改版完整規格書
 
-## Dawn 出帳管理系統 V5 UI Redesign
+## Onemood 出帳管理系統 V5 UI Redesign
 
 **版本：** V6.1（整合需求定義 + 執行路線圖 + 設計規格 + 研究結論 + PM 訪談優化）
 **範圍：** 純 CSS/Template 視覺改版（例外：CSP header 一行安全設定調整）
@@ -296,7 +296,7 @@
 ### Navbar
 
 - 固定頂部，毛玻璃改為大地色系實底
-- 品牌名 "Dawn" 使用 Noto Serif TC
+- 品牌名 "Onemood" 使用 Noto Serif TC
 - Light: 暖奶油底 or 深石墨底 + 白字
 - Dark: 暖深棕底 + 暖奶白字
 

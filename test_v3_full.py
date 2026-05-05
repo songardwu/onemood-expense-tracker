@@ -71,8 +71,8 @@ print('=' * 60)
 print('\n--- 1. 管理員建立測試帳號 ---')
 # ============================================================
 admin = make_session()
-body = login(admin, 'dawn', 'admin123')
-result('管理員登入成功', 'Dawn' in body)
+body = login(admin, 'admin', 'admin123')
+result('管理員登入成功', 'Onemood' in body)
 
 # 建立 designer_a (王小明) 和 designer_b (李小華)
 post_form(admin, '/users/create', {
@@ -223,7 +223,7 @@ result('空發票號碼正常通過', status_empty == 200 and 'TestEmpty' in bod
 print('\n--- 7. 管理員全域檢視 ---')
 # ============================================================
 admin2 = make_session()
-admin_list = login(admin2, 'dawn', 'admin123')
+admin_list = login(admin2, 'admin', 'admin123')
 result('管理員看到大明設計公司', '大明設計公司' in admin_list)
 result('管理員看到永豐工程行', '永豐工程行' in admin_list)
 result('管理員看到提報人欄', '提報人' in admin_list)
@@ -392,7 +392,7 @@ print('\n--- 11. 審計軌跡顯示 ---')
 # ============================================================
 _, admin_list4 = get_page(admin2, '/')
 result('清單頁有最後修改欄', '最後修改' in admin_list4)
-result('顯示修改人 Dawn', 'Dawn' in admin_list4)
+result('顯示修改人 Onemood', 'Onemood' in admin_list4)
 
 # ============================================================
 print('\n--- 12. 設計師停用 / 啟用 ---')

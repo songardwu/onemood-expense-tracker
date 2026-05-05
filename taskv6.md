@@ -504,7 +504,7 @@ input, select, textarea {
     color: var(--accent);  /* 自動吃到森林綠 */
 }
 ```
-**驗收：** Navbar 實底暖色；Dawn 品牌名顯示宋體
+**驗收：** Navbar 實底暖色；Onemood 品牌名顯示宋體
 **狀態：** [x]
 
 ---
@@ -622,7 +622,7 @@ input, select, textarea {
     font-family: var(--font-heading);  /* Noto Serif TC */
 }
 ```
-**驗收：** 登入卡片圓角一致；Dawn 文字顯示宋體
+**驗收：** 登入卡片圓角一致；Onemood 文字顯示宋體
 **狀態：** [x]
 
 ---
@@ -648,7 +648,7 @@ input, select, textarea {
 
 **做什麼：**
 1. 逐頁開啟 5 個頁面，確認零冷白/藍色殘留
-2. 確認 Navbar 實底 + Dawn 宋體
+2. 確認 Navbar 實底 + Onemood 宋體
 3. 確認所有按鈕微圓角（非膠囊）
 4. Tab 鍵遊走確認焦點環為胡桃棕
 5. 跑 69/69 測試 → 全數通過

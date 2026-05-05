@@ -124,7 +124,7 @@ print('=' * 60)
 section('1. 登入/登出/權限')
 # ============================================================
 admin = make_session()
-login(admin, 'dawn', 'dawn1234')
+login(admin, 'admin', 'admin')
 s, body = get(admin, '/')
 check('管理員登入成功', s == 200 and '出帳管理' in body)
 
